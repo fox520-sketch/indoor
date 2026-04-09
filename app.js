@@ -580,6 +580,25 @@
     render();
   }
 
+  function createAnchorFromCurrentPose() {
+    const pose = latestPose();
+    const heading = Math.round(normalizeAngle(pose.heading ?? state.orientation.heading ?? 0));
+    const anchor = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+      name: `目前位置標定點 ${state.savedAnchors.filter(a => a.source === 'current-pose').length + 1}`,
+      x: Number((pose.x || 0).toFixed(2)),
+      y: Number((pose.y || 0).toFixed(2)),
+      heading,
+      source: 'current-pose',
+      payload: `INDOOR_ANCHOR:${Number((pose.x || 0).toFixed(2))},${Number((pose.y || 0).toFixed(2))},${heading}`,
+      createdAt: new Date().toISOString()
+    };
+    state.savedAnchors.unshift(anchor);
+    persistSavedAnchors();
+    setMessage(`已用目前位置建立標定點：${anchor.name}。`);
+    render();
+  }
+
   async function createAnchorFromGpsDraft() {
     try {
       state.gpsAnchorSampling = true;
@@ -617,14 +636,14 @@
         x: Number(meters.x.toFixed(2)),
         y: Number(meters.y.toFixed(2)),
         heading,
-        source: "gps",
+        source: "gps-fixed",
         gps: { lat: sample.lat, lng: sample.lng, accuracy: sample.accuracy },
         payload: `INDOOR_ANCHOR:${Number(meters.x.toFixed(2))},${Number(meters.y.toFixed(2))},${heading}`,
         createdAt: new Date().toISOString()
       };
       state.savedAnchors.unshift(anchor);
       persistSavedAnchors();
-      setMessage(`已建立 GPS 標定點：${anchor.name}。`);
+      setMessage(`已建立 GPS 固定標定點：${anchor.name}。`);
       render();
     } catch (e) {
       setMessage("GPS 標定點建立失敗：" + e.message);
@@ -706,6 +725,40 @@
 
   function fmt(n, d = 2) {
     return Number.isFinite(n) ? n.toFixed(d) : "-";
+  }
+
+  function normalizeSavedAnchorRecord(a, idx = 0) {
+    const x = Number(a?.x ?? 0);
+    const y = Number(a?.y ?? 0);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const heading = a?.heading == null || a.heading === "" ? null : Number(a.heading);
+    const source = a?.source || (a?.gps ? "gps-fixed" : "manual");
+    return {
+      id: a?.id || ((crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + idx)),
+      name: a?.name || `校正點 ${idx + 1}`,
+      x,
+      y,
+      heading: Number.isFinite(heading) ? heading : null,
+      source,
+      gps: a?.gps ? { lat: Number(a.gps.lat), lng: Number(a.gps.lng), accuracy: Number(a.gps.accuracy) } : null,
+      payload: a?.payload || `INDOOR_ANCHOR:${x}${Number.isFinite(y) ? ',' + y : ',0'}${Number.isFinite(heading) ? ',' + heading : ''}`,
+      createdAt: a?.createdAt || new Date().toISOString()
+    };
+  }
+
+  function anchorDisplayColor(anchor) {
+    if (!anchor) return '#2563eb';
+    if (anchor.source === 'current-pose') return '#d946ef';
+    if (anchor.source === 'gps' || anchor.source === 'gps-fixed') return '#2563eb';
+    if (anchor.source === 'map-point') return '#0ea5e9';
+    return '#2563eb';
+  }
+
+  function anchorLabelColor(anchor) {
+    if (!anchor) return '#1e3a8a';
+    if (anchor.source === 'current-pose') return '#a21caf';
+    if (anchor.source === 'map-point') return '#0369a1';
+    return '#1e3a8a';
   }
 
   function normalizeAngle(deg) {
@@ -915,7 +968,7 @@
       ctx.font = "12px system-ui, sans-serif";
       state.savedAnchors.forEach((a) => {
         const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
-        const anchorColor = a.source === "current-pose" ? "#d946ef" : "#2563eb";
+        const anchorColor = anchorDisplayColor(a);
         ctx.fillStyle = anchorColor;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, fixedRadius(6), 0, Math.PI * 2);
@@ -930,7 +983,7 @@
           ctx.lineTo(pt.x + Math.sin(rad) * 18, pt.y - Math.cos(rad) * 18);
           ctx.stroke();
         }
-        labelBox(ctx, pt.x + 10, pt.y - 10, a.name || "anchor", a.source === "current-pose" ? "#a21caf" : "#1e3a8a");
+        labelBox(ctx, pt.x + 10, pt.y - 10, a.name || "anchor", anchorLabelColor(a));
       });
     }
 
@@ -1035,14 +1088,14 @@
         const x = CENTER + Number(a.x || 0) * DEFAULT_WORLD_SCALE;
         const y = CENTER + Number(a.y || 0) * DEFAULT_WORLD_SCALE;
 
-        ctx.fillStyle = "#2563eb";
+        ctx.fillStyle = anchorDisplayColor(a);
         ctx.beginPath();
         ctx.arc(x, y, 6, 0, Math.PI * 2);
         ctx.fill();
 
         if (a.heading != null && Number.isFinite(Number(a.heading))) {
           const rad = (Number(a.heading) * Math.PI) / 180;
-          ctx.strokeStyle = "#2563eb";
+          ctx.strokeStyle = anchorDisplayColor(a);
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(x, y);
@@ -1056,7 +1109,7 @@
         const metrics = ctx.measureText(label);
         ctx.fillStyle = "rgba(255,255,255,0.9)";
         ctx.fillRect(textX - 4, textY - 12, metrics.width + 8, 18);
-        ctx.fillStyle = "#1e3a8a";
+        ctx.fillStyle = anchorLabelColor(a);
         ctx.fillText(label, textX, textY);
       });
     }
@@ -3111,8 +3164,8 @@
   function loadSavedAnchors() {
     try {
       const raw = localStorage.getItem("indoor_saved_anchors");
-      state.savedAnchors = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(state.savedAnchors)) state.savedAnchors = [];
+      const parsed = raw ? JSON.parse(raw) : [];
+      state.savedAnchors = Array.isArray(parsed) ? parsed.map((a, idx) => normalizeSavedAnchorRecord(a, idx)).filter(Boolean) : [];
     } catch (e) {
       state.savedAnchors = [];
     }
@@ -3153,16 +3206,8 @@
         throw new Error("JSON 格式不正確，找不到 anchors 陣列。");
       }
       const normalized = anchors
-        .map((a, idx) => ({
-          id: a.id || ((crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + idx)),
-          name: a.name || `校正點 ${idx + 1}`,
-          x: Number(a.x ?? 0),
-          y: Number(a.y ?? 0),
-          heading: a.heading == null || a.heading === "" ? null : Number(a.heading),
-          payload: a.payload || `INDOOR_ANCHOR:${Number(a.x ?? 0)},${Number(a.y ?? 0)}${a.heading == null || a.heading === "" ? "" : "," + Number(a.heading)}`,
-          createdAt: a.createdAt || new Date().toISOString()
-        }))
-        .filter((a) => Number.isFinite(a.x) && Number.isFinite(a.y));
+        .map((a, idx) => normalizeSavedAnchorRecord(a, idx))
+        .filter(Boolean);
 
       state.savedAnchors = normalized;
       persistSavedAnchors();
@@ -3184,6 +3229,7 @@
       x,
       y,
       heading,
+      source: "manual",
       payload: buildQrPayload(),
       createdAt: new Date().toISOString()
     };
@@ -3230,7 +3276,7 @@
           <strong>${a.name}</strong>
           <span class="badge">${a.heading == null ? "無方向" : a.heading + "°"}</span>
         </div>
-        <div>x: ${a.x} / y: ${a.y}</div><div style="color:#64748b; font-size:12px;">來源：${a.source === "current-pose" ? "目前位置" : (a.source || "manual")}${a.gps?.accuracy ? " / GPS ±" + fmt(a.gps.accuracy,1) + "m" : ""}</div>
+        <div>x: ${a.x} / y: ${a.y}</div><div style="color:#64748b; font-size:12px;">來源：${a.source === "current-pose" ? "目前位置" : a.source === "gps-fixed" ? "GPS 固定點" : (a.source || "manual")}${a.gps?.accuracy ? " / GPS ±" + fmt(a.gps.accuracy,1) + "m" : ""}</div>
         <div style="margin-top:6px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:#475569; word-break:break-all;">${a.payload}</div>
         <div class="btns" style="margin-top:10px; margin-bottom:0;">
           <button data-anchor-use="${a.id}">載入</button>
