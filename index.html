@@ -1,0 +1,3889 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>室內導航 + QR 校正點工具</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #dbe3ee;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #0f172a;
+      --primaryText: #ffffff;
+      --secondary: #eef2f7;
+      --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(248,250,252,.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .navtabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .tabbtn {
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 999px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .tabbtn.active {
+      background: var(--primary);
+      color: var(--primaryText);
+      border-color: var(--primary);
+    }
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .page { display: none; }
+    .page.active { display: block; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 18px 18px 8px 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .card-content { padding: 18px; }
+    .badges { display: flex; flex-wrap: wrap; gap: 8px; }
+    .badge {
+      background: #eef2f7;
+      color: #334155;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .alert {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      color: #334155;
+      line-height: 1.5;
+    }
+    .btn-row, .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    button, .download-link, a.btn {
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text);
+      border-radius: 16px;
+      padding: 11px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button.primary, .btn.primary {
+      background: var(--primary);
+      color: var(--primaryText);
+      border-color: var(--primary);
+    }
+    button.secondary {
+      background: var(--secondary);
+    }
+    button.danger {
+      background: #fee2e2;
+      color: var(--danger);
+      border-color: #fecaca;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .big-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .big-actions button {
+      min-height: 68px;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .slider-box, .formbox {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 14px;
+      background: white;
+    }
+    .slider-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    input[type="range"], input[type="number"], input[type="text"], textarea {
+      width: 100%;
+    }
+    input[type="number"], input[type="text"], textarea {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 15px;
+      background: white;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    .subtle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    .map-wrap, .preview {
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      background: white;
+      padding: 10px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background:
+        linear-gradient(#e5e7eb 1px, transparent 1px),
+        linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
+      background-size: 40px 40px;
+      background-position: center center;
+      border-radius: 16px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .stat, .item, .preview-box {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      background: white;
+    }
+    .stat .label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .stat .value {
+      margin-top: 6px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 380px;
+      overflow: auto;
+    }
+    .item {
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .item-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .hint p {
+      margin: 0 0 8px 0;
+      line-height: 1.6;
+      color: #334155;
+      font-size: 14px;
+    }
+    .qr-grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+    }
+    .row { margin-bottom: 14px; }
+    label {
+      display: block;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 420px;
+    }
+    .qr-box { text-align: center; }
+    #qrImage {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: #fff;
+    }
+    .payload {
+      margin-top: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      word-break: break-all;
+      color: #334155;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      text-align: left;
+    }
+    @media (max-width: 960px) {
+      .grid, .qr-grid { grid-template-columns: 1fr; }
+    }
+
+    .map-wrap {
+      position: relative;
+      touch-action: none;
+      overflow: hidden;
+      min-height: 560px;
+    }
+    .map-wrap canvas {
+      transform-origin: center center;
+      will-change: transform;
+      touch-action: none;
+    }
+    .map-overlay {
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .compass {
+      right: 14px;
+      top: 14px;
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.92);
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 10px rgba(15,23,42,.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: #334155;
+      font-weight: 700;
+    }
+    .compass-needle {
+      position: absolute;
+      width: 4px;
+      height: 24px;
+      border-radius: 999px;
+      background: #dc2626;
+      transform-origin: center 20px;
+      margin-top: -10px;
+    }
+    .zoom-chip {
+      left: 14px;
+      top: 14px;
+      background: rgba(255,255,255,.92);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #334155;
+      font-weight: 600;
+      box-shadow: 0 2px 10px rgba(15,23,42,.08);
+    }
+
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <strong>室內導航工具箱</strong>
+      <div class="navtabs">
+        <button class="tabbtn active" data-page="navPage">導航</button>
+        <button class="tabbtn" data-page="qrPage">QR 產生器</button>
+        <button class="tabbtn" data-page="mapEditorPage">地圖編輯</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div id="navPage" class="page active">
+      <div class="grid">
+        <section class="card">
+          <div class="card-header">
+            <h2>室內軌跡校正 Prototype</h2>
+            <div class="badges">
+              <span class="badge" id="permissionBadge">idle</span>
+              <span class="badge" id="gpsBadge">無GPS</span>
+              <span class="badge" id="trackBadge">idle</span>
+            </div>
+          </div>
+          <div class="card-content">
+            <div class="alert" id="messageBox">先授權感測器與定位，再開始追蹤。</div>
+
+            <div class="alert" id="guidanceBanner" style="background:#fff7ed; border-color:#fed7aa;">尚未開始導航。</div>
+
+            <div class="btn-row">
+              <button class="primary" id="btnPermission">授權感測器與定位</button>
+              <button id="btnAnchor">以目前 GPS 設起點</button>
+              <button id="btnStart">開始追蹤</button>
+              <button id="btnStop">停止追蹤</button>
+              <button class="secondary" id="btnExport">匯出 JSON</button>
+              <button class="secondary" id="btnStepCal">10 步步長校正</button>
+              <button class="secondary" id="btnQrCal">QR 校正點</button>
+              <a class="download-link" id="downloadLink" style="display:none;">下載匯出檔</a>
+              <button class="danger" id="btnReset">清空資料</button>
+            </div>
+
+            <div class="slider-box">
+              <div class="slider-row">
+                <span>步長設定</span>
+                <span id="stepLengthValue">0.72 m</span>
+              </div>
+              <input type="range" id="stepLength" min="0.4" max="1.0" step="0.01" value="0.72" />
+              <div class="subtle">先用手動步長校正，之後可改成依步頻或身高自動估計。</div>
+              <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:8px; margin:0; color:#334155;">
+                  <input id="toggleAnchorOverlay" type="checkbox" checked />
+                  顯示已儲存校正點
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; margin:0; color:#334155;">
+                  <input id="toggleMapOverlay" type="checkbox" checked />
+                  顯示地圖圖層
+                </label>
+                <span class="subtle" style="margin:0;">會把 QR 產生器裡存過的校正點與地圖編輯模式建立的元素畫在導航畫布上。</span>
+              </div>
+            </div>
+
+            <div class="big-actions">
+              <button id="btnPosCorrection">按鈕 1：位置校正</button>
+              <button class="secondary" id="btnHeadingCorrection">按鈕 2：方向校正</button>
+            </div>
+
+            <div class="map-wrap" id="trackCanvasWrap">
+              <div class="map-overlay compass" id="navCompass"><div class="compass-needle" id="navCompassNeedle"></div><span>N</span></div>
+              <div class="map-overlay zoom-chip" id="navZoomChip">100%</div>
+              <canvas id="trackCanvas" width="560" height="560"></canvas>
+            </div>
+            <div class="subtle" style="margin-top:10px;">紅色虛線為目前導航段，橘色虛線為後續段，藍點為已儲存校正點，紫線/綠點/黃區為地圖編輯圖層。</div>
+          </div>
+        </section>
+
+        <div>
+          <section class="card" style="margin-bottom:16px;">
+            <div class="card-header"><h3>即時狀態</h3></div>
+            <div class="card-content">
+              <div class="stats">
+                <div class="stat"><div class="label">估計位置</div><div class="value" id="poseValue">x 0.00 / y 0.00</div></div>
+                <div class="stat"><div class="label">估計方向</div><div class="value" id="headingValue">0.0°</div></div>
+                <div class="stat"><div class="label">GPS accuracy</div><div class="value" id="gpsAccValue">-</div><div class="subtle">校正門檻：20 m</div></div>
+                <div class="stat"><div class="label">步數</div><div class="value" id="stepCountValue">0</div></div>
+                <div class="stat"><div class="label">加速度</div><div class="value" id="accValue">0, 0, 0</div></div>
+                <div class="stat"><div class="label">步態訊號</div><div class="value" id="motionValue">raw 0 / smooth 0</div></div>
+                <div class="stat"><div class="label">上次步伐</div><div class="value" id="lastStepValue">-</div></div>
+                <div class="stat"><div class="label">地理座標</div><div class="value" id="geoValue">-</div></div>
+              </div>
+            </div>
+          </section>
+
+
+          <section class="card" style="margin-bottom:16px;">
+            <div class="card-header"><h3>箭頭導引</h3></div>
+            <div class="card-content">
+              <div style="display:flex; align-items:center; justify-content:center; padding:10px 0 18px 0;">
+                <div id="arrowDial" style="width:220px; height:220px; border:1px solid var(--border); border-radius:999px; position:relative; background:linear-gradient(180deg,#fff,#f8fafc);">
+                  <div style="position:absolute; inset:12px; border:1px dashed #cbd5e1; border-radius:999px;"></div>
+                  <div style="position:absolute; left:50%; top:14px; transform:translateX(-50%); font-size:12px; color:#64748b;">前方</div>
+                  <div id="arrowNeedle" style="position:absolute; left:50%; top:50%; width:8px; height:88px; background:#dc2626; transform-origin:center 70px; transform:translate(-50%,-70px) rotate(0deg); border-radius:999px; box-shadow:0 2px 8px rgba(220,38,38,.25);"></div>
+                  <div style="position:absolute; left:50%; top:50%; width:18px; height:18px; background:#0f172a; border-radius:999px; transform:translate(-50%,-50%);"></div>
+                </div>
+              </div>
+              <div class="stats">
+                <div class="stat"><div class="label">下一步方向</div><div class="value" id="turnArrowText">尚未設定</div></div>
+                <div class="stat"><div class="label">剩餘距離</div><div class="value" id="turnDistanceText">-</div></div>
+                <div class="stat"><div class="label">相對轉角</div><div class="value" id="turnAngleText">-</div></div>
+                <div class="stat"><div class="label">下一個點</div><div class="value" id="turnTargetText">-</div></div>
+              </div>
+            </div>
+          </section>
+
+
+          <section class="card" style="margin-bottom:16px;">
+            <div class="card-header"><h3>路徑進度</h3></div>
+            <div class="card-content">
+              <div style="margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:14px; color:#64748b; margin-bottom:8px;">
+                  <span id="routeProgressLabel">尚未開始</span>
+                  <span id="routeProgressPercent">0%</span>
+                </div>
+                <div style="width:100%; height:14px; border-radius:999px; background:#e2e8f0; overflow:hidden;">
+                  <div id="routeProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg,#fb923c,#ef4444); border-radius:999px;"></div>
+                </div>
+              </div>
+              <div class="stats">
+                <div class="stat"><div class="label">已走距離</div><div class="value" id="routeTraveledText">-</div></div>
+                <div class="stat"><div class="label">剩餘距離</div><div class="value" id="routeRemainingText">-</div></div>
+                <div class="stat"><div class="label">總距離</div><div class="value" id="routeTotalText">-</div></div>
+                <div class="stat"><div class="label">ETA 預估</div><div class="value" id="routeEtaText">-</div></div>
+              </div>
+            </div>
+          </section>
+
+
+          <section class="card" style="margin-bottom:16px;">
+            <div class="card-header"><h3>導航歷史</h3></div>
+            <div class="card-content">
+              <div class="subtle" style="margin-top:0; margin-bottom:10px;">每次開始到結束的一段導航都會記錄在這裡，存在目前瀏覽器。</div>
+              <div class="btns" style="margin-bottom:10px;">
+                <button id="btnExportNavHistory">匯出歷史</button>
+                <button id="btnClearNavHistory" class="danger">清空歷史</button>
+              </div>
+              <div id="navHistoryList" class="list" style="max-height:280px;">
+                <div class="item" style="${m.id === state.selectedMapElementId ? 'border-color:#ef4444; box-shadow:0 0 0 1px rgba(239,68,68,.2) inset;' : ''}">尚無導航歷史。</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" style="margin-bottom:16px;">
+            <div class="card-header"><h3>校正紀錄</h3></div>
+            <div class="card-content">
+              <div class="list" id="correctionList">
+                <div class="item">尚未進行校正。建議先在入口設定起點，追蹤後到窗邊做位置校正，再做方向校正。</div>
+              </div>
+            </div>
+          </section>
+
+
+          <section class="card" style="margin-bottom:16px;">
+            <div class="card-header"><h3>目標導引</h3></div>
+            <div class="card-content">
+              <div class="row">
+                <label for="navTargetSelect">選擇目標校正點</label>
+                <select id="navTargetSelect" style="width:100%; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font-size:15px; background:white;">
+                  <option value="">請先選擇目標</option>
+                </select>
+              </div>
+              <div class="btns" style="margin-bottom:10px;">
+                <button id="btnSetTarget">設為導航目標</button>
+                <button id="btnClearTarget" class="secondary">清除目標</button>
+              </div>
+              <div class="row">
+                <label for="routeModeSelect">路徑模式</label>
+                <select id="routeModeSelect" style="width:100%; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font-size:15px; background:white;">
+                  <option value="direct">直接連線</option>
+                  <option value="multi">多段路徑</option>
+                  <option value="network">沿線段自動找路</option>
+                </select>
+              </div>
+              <div class="row">
+                <label for="routeWaypointsSelect">中繼校正點（多選）</label>
+                <select id="routeWaypointsSelect" multiple size="6" style="width:100%; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font-size:15px; background:white;"></select>
+                <div class="subtle">按住 Ctrl / Command 可多選。手機上可先不選，之後用快速按鈕加入。若選「沿線段自動找路」，系統會優先沿地圖編輯裡的線段規劃。</div>
+              </div>
+              <div class="btns" style="margin-bottom:10px;">
+                <button id="btnApplyRoute" class="secondary">套用多段路徑</button>
+                <button id="btnClearRoute" class="secondary">清空中繼點</button>
+              </div>
+              <div class="row">
+                <label for="arrivalThresholdInput">到點提示門檻（公尺）</label>
+                <input id="arrivalThresholdInput" type="number" step="0.1" min="0.5" max="10" value="2.0" style="width:100%; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font-size:15px; background:white;" />
+              </div>
+              <div style="margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:8px; margin:0; color:#334155;">
+                  <input id="toggleVoiceGuide" type="checkbox" checked />
+                  啟用語音提示
+                </label>
+                <span class="subtle" style="margin:0;">使用瀏覽器語音播報到點與轉向提醒。</span>
+              </div>
+              <div class="subtle" id="targetSummary" style="margin-top:10px;">尚未設定導航目標。</div>
+              <div class="btns" style="margin-top:10px; margin-bottom:0;">
+                <button id="btnNavSessionStart" class="primary">開始導航</button>
+                <button id="btnNavSessionPause" class="secondary">暫停導航</button>
+                <button id="btnNavSessionResume" class="secondary">繼續導航</button>
+                <button id="btnNavSessionEnd" class="danger">結束導航</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-header"><h3>操作順序</h3></div>
+            <div class="card-content hint">
+              <p>1. 先授權感測器與定位。</p>
+              <p>2. 到窗邊按「以目前 GPS 設起點」。</p>
+              <p>3. 按「開始追蹤」後再走動。</p>
+              <p>4. 訊號好時做位置校正，固定手機做方向校正。</p>
+              <p>5. 也可以切到上方「QR 產生器」頁做 QR 校正點。</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="qrPage" class="page">
+      <div class="qr-grid">
+        <section class="card">
+          <div class="card-header"><h2>QR 校正點產生器</h2></div>
+          <div class="card-content">
+            <div class="row">
+              <label for="anchorName">校正點名稱</label>
+              <input id="anchorName" placeholder="例如：入口 A、電梯口、會議室外" />
+            </div>
+
+            <div class="row">
+              <label for="xValue">X 座標（公尺）</label>
+              <input id="xValue" type="number" step="0.1" value="0" />
+            </div>
+
+            <div class="row">
+              <label for="yValue">Y 座標（公尺）</label>
+              <input id="yValue" type="number" step="0.1" value="0" />
+            </div>
+
+            <div class="row">
+              <label for="headingValueInput">方向 heading（0~359，可留空）</label>
+              <input id="headingValueInput" type="number" step="1" placeholder="例如 0 / 90 / 180 / 270" />
+            </div>
+
+            <div class="row">
+              <label for="payloadText">QR 內容</label>
+              <textarea id="payloadText" readonly></textarea>
+            </div>
+
+            <div class="btns">
+              <button class="primary" id="btnGenerate">產生 QR</button>
+              <button id="btnCopy">複製內容</button>
+              <a class="btn" id="btnDownloadQr" download="indoor-anchor-qr.png">下載 QR 圖片</a>
+            </div>
+
+            <div class="subtle">
+              建議實際貼在現場時，同時把名稱與座標印在紙上，例如：<br />
+              入口 A / x=0 / y=0 / heading=0
+            </div>
+
+            <div class="formbox" style="margin-top:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
+                <strong>本地校正點清單</strong>
+                <div class="btns" style="margin:0;">
+                  <button id="btnSaveAnchor">儲存目前校正點</button>
+                  <button id="btnSyncAnchorsToMap">同步全部到地圖</button>
+                  <button id="btnExportAnchors">匯出清單</button>
+                  <button id="btnImportAnchors">匯入清單</button>
+                  <input id="importAnchorsFile" type="file" accept="application/json" style="display:none;" />
+                  <button id="btnClearAnchors" class="danger">清空清單</button>
+                </div>
+              </div>
+              <div class="subtle" style="margin-top:0; margin-bottom:10px;">會存在你目前這台裝置的瀏覽器 localStorage。重新開網站還會在，也可同步回地圖編輯模式。</div>
+              <div id="anchorList" class="list" style="max-height:260px;">
+                <div class="item">尚未儲存任何校正點。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header"><h2>預覽</h2></div>
+          <div class="card-content">
+            <div class="preview">
+              <div class="qr-box">
+                <img id="qrImage" alt="QR code 預覽" />
+                <div id="anchorTitle" style="margin-top:12px; font-weight:700;">尚未產生</div>
+                <div class="payload" id="payloadPreview">INDOOR_ANCHOR:0,0,0</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="mapEditorPage" class="page">
+      <div class="grid">
+        <section class="card">
+          <div class="card-header">
+            <h2>地圖編輯模式</h2>
+            <div class="badges">
+              <span class="badge" id="editorModeBadge">idle</span>
+            </div>
+          </div>
+          <div class="card-content">
+            <div class="alert" id="editorMessageBox">先選編輯模式，再點擊畫布建立地圖元素。</div>
+
+            <div class="btn-row">
+              <button id="btnEditorIdle">瀏覽模式</button>
+              <button id="btnEditorPoint" class="secondary">新增點位</button>
+              <button id="btnEditorLine" class="secondary">新增線段</button>
+              <button id="btnEditorArea" class="secondary">新增區域</button>
+              <button id="btnEditorUndo" class="secondary">上一步</button>
+              <button id="btnEditorNormalize" class="secondary">修正路網</button>
+              <button id="btnEditorClear" class="danger">清空地圖元素</button>
+            </div>
+
+            <div class="slider-box">
+              <div class="slider-row">
+                <span>編輯用名稱</span>
+                <span id="editorDraftInfo">未命名</span>
+              </div>
+              <input id="editorNameInput" type="text" placeholder="例如：走廊 A、入口大廳、會議室區" />
+              <div style="margin-top:10px;" class="row">
+                <label for="editorElementSemantic">元素語義</label>
+                <select id="editorElementSemantic" style="width:100%; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font-size:15px; background:white;">
+                  <option value="walkable">可通行</option>
+                  <option value="wall">牆 / 障礙</option>
+                  <option value="restricted">限制區域</option>
+                  <option value="landmark">地標</option>
+                </select>
+              </div>
+              <div class="subtle">新增點位時會以這個名稱建立標記。新增線段/區域時會以這個名稱記錄元素，並附帶可通行/牆/限制區域等語義。</div>
+              <div style="margin-top:10px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:8px; margin:0; color:#334155;">
+                  <input id="toggleSnapMode" type="checkbox" checked />
+                  啟用端點吸附
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; margin:0; color:#334155;">
+                  <input id="toggleAutoIntersect" type="checkbox" checked />
+                  啟用交點節點化
+                </label>
+              </div>
+              <div class="subtle">線段端點會自動吸附到附近現有端點。若兩條線相交，會自動建立交點節點供路網使用。牆與限制區域會影響路徑規劃。</div>
+            </div>
+
+            <div class="map-wrap" id="editorCanvasWrap">
+              <div class="map-overlay compass" id="editorCompass"><div class="compass-needle" id="editorCompassNeedle"></div><span>N</span></div>
+              <div class="map-overlay zoom-chip" id="editorZoomChip">100%</div>
+              <canvas id="editorCanvas" width="560" height="560"></canvas>
+            </div>
+            <div class="subtle" style="margin-top:10px;">
+              點位會存在本機瀏覽器。你可以用它建立走廊線、區域框、入口點，之後再搭配 QR 校正點與導航頁使用。
+            </div>
+          </div>
+        </section>
+
+        <div>
+          <section class="card" style="margin-bottom:16px;">
+            <div class="card-header"><h3>地圖元素清單</h3></div>
+            <div class="card-content">
+              <div class="btns" style="margin-bottom:10px;">
+                <button id="btnExportMapData">匯出地圖 JSON</button>
+                <button id="btnImportMapData">匯入地圖 JSON</button>
+                <input id="importMapDataFile" type="file" accept="application/json" style="display:none;" />
+              </div>
+              <div class="formbox" style="margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;">
+                  <strong>已選元素編輯</strong>
+                  <span class="badge" id="selectedMapElementType">none</span>
+                </div>
+                <div class="row">
+                  <label for="selectedMapElementName">名稱</label>
+                  <input id="selectedMapElementName" type="text" placeholder="請先從清單選一個元素" />
+                </div>
+                <div class="row">
+                  <label for="selectedMapElementSemantic">元素語義</label>
+                  <select id="selectedMapElementSemantic" style="width:100%; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font-size:15px; background:white;">
+                    <option value="walkable">可通行</option>
+                    <option value="wall">牆 / 障礙</option>
+                    <option value="restricted">限制區域</option>
+                    <option value="landmark">地標</option>
+                  </select>
+                </div>
+                <div class="btns" style="margin-bottom:0;">
+                  <button id="btnUpdateSelectedMapElement">更新名稱</button>
+                  <button id="btnConvertSelectedToAnchor" class="secondary">轉成 Anchor</button>
+                  <button id="btnDeleteSelectedMapElement" class="danger">刪除所選元素</button>
+                </div>
+              </div>
+              <div id="mapElementList" class="list" style="max-height:460px;">
+                <div class="item">尚未建立任何地圖元素。</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-header"><h3>編輯說明</h3></div>
+            <div class="card-content hint">
+              <p>1. 點位模式：點一下畫布就建立一個點。</p>
+              <p>2. 線段模式：依序點兩個位置，建立一條走廊或牆線。</p>
+              <p>3. 區域模式：依序點四個角點，建立矩形區域。</p>
+              <p>4. 先做草圖級地圖，再慢慢補室內結構。</p>
+              <p>5. 點位元素可一鍵轉成 Anchor，直接進到 QR 與導航流程。</p>
+              <p>6. 線段元素可作為路網，讓導航頁沿地圖線段自動找路。</p>
+              <p>7. 啟用吸附與交點節點化後，路網會更容易連通，找路更穩。</p>
+              <p>8. 把線段或區域標成牆 / 限制區域後，路徑規劃會盡量避開。</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+
+  <div id="qrModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:50; align-items:center; justify-content:center;">
+    <div style="background:#fff; width:min(92vw,520px); border-radius:16px; padding:14px; border:1px solid #dbe3ee;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <strong>掃描 QR 校正點</strong>
+        <button id="btnQrClose" style="border:1px solid #dbe3ee; border-radius:12px; padding:6px 10px; background:#fff;">關閉</button>
+      </div>
+      <video id="qrVideo" playsinline style="width:100%; border-radius:12px; background:#000;"></video>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">QR 內容格式：INDOOR_ANCHOR:x,y,heading（例如 INDOOR_ANCHOR:12.4,-3.2,90）</div>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+(() => {
+  const SAMPLE_MS = 250;
+  const POSITION_SAMPLE_SECONDS = 6;
+  const HEADING_SAMPLE_SECONDS = 4;
+  const DEFAULT_STEP_METERS = 0.72;
+  const STEP_THRESHOLD = 1.15;
+  const STEP_DEBOUNCE_MS = 320;
+  const STEP_SMOOTHING = 0.22;
+  const MIN_GPS_ACCURACY_METERS = 20;
+  const QR_TARGET_PREFIX = "INDOOR_ANCHOR:";
+  const TRACK_SIZE = 560;
+  const CENTER = TRACK_SIZE / 2;
+  const DEFAULT_CANVAS_SCALE = 1;
+  const DEFAULT_VIEW_SCALE = 1;
+  const MIN_VIEW_SCALE = 0.65;
+  const MAX_VIEW_SCALE = 3.2;
+  const DEFAULT_WORLD_SCALE = 8;
+
+  const state = {
+    permissionState: "idle",
+    tracking: false,
+    message: "先授權感測器與定位，再開始追蹤。",
+    anchor: null,
+    geoReading: null,
+    orientation: { heading: 0, supported: false },
+    motion: { ax: 0, ay: 0, az: 0, supported: false },
+    positionSampleMode: false,
+    headingSampleMode: false,
+    positionSamples: [],
+    headingSamples: [],
+    trail: [{ x: 0, y: 0, heading: 0, t: Date.now() }],
+    currentPose: { x: 0, y: 0, heading: 0 },
+    corrections: [],
+    stepCount: 0,
+    stepLength: DEFAULT_STEP_METERS,
+    lastStepAt: 0,
+    motionMagnitude: 0,
+    smoothedMagnitude: 0,
+    exportUrl: "",
+    calibratingStepLength: false,
+    stepCalStart: 0,
+    qrScanMode: false,
+    qrStream: null,
+    savedAnchors: [],
+    showAnchorOverlay: true,
+    navTargetId: "",
+    routeMode: "direct",
+    waypointIds: [],
+    arrivalThreshold: 2.0,
+    activeLegIndex: 0,
+    arrivedTarget: false,
+    lastArrivalNoticeKey: "",
+    voiceGuideEnabled: true,
+    currentGuidanceText: "尚未開始導航。",
+    lastSpokenText: "",
+    lastTurnCueKey: "",
+    startedRouteDistance: 0,
+    averageWalkingSpeed: 1.15,
+    navSessionState: "idle",
+    navSessionStartedAt: null,
+    navSessionPausedAt: null,
+    navPauseAccumulatedMs: 0,
+    navHistory: [],
+    mapElements: [],
+    editorMode: "idle",
+    editorDraftPoints: [],
+    editorMessage: "先選編輯模式，再點擊畫布建立地圖元素。",
+    showMapOverlay: true,
+    selectedMapElementId: "",
+    plannedRoutePoints: [],
+    snapEnabled: true,
+    autoIntersectEnabled: true,
+    snapThreshold: 1.2,
+    navViewport: { scale: DEFAULT_VIEW_SCALE, panX: 0, panY: 0, minScale: MIN_VIEW_SCALE, maxScale: MAX_VIEW_SCALE },
+    editorViewport: { scale: DEFAULT_VIEW_SCALE, panX: 0, panY: 0, minScale: MIN_VIEW_SCALE, maxScale: MAX_VIEW_SCALE },
+    autoStepCalibration: {
+      enabled: true,
+      windowStart: null,
+      lastEstimate: null
+    },
+    lastGeoCorrectionAt: 0,
+    anchorCreationMode: false,
+    gpsAnchorSampling: false
+  };
+
+  let geoWatchId = null;
+  let positionTimer = null;
+  let headingTimer = null;
+  let smoothedMagnitudeRef = 0;
+  let lastStepAtRef = 0;
+  let navCanvasGesture = null;
+  let editorCanvasGesture = null;
+
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("trackCanvas");
+  const ctx = canvas.getContext("2d");
+
+  function activeCanvasScale(viewport) {
+    return DEFAULT_CANVAS_SCALE * (viewport?.scale || 1);
+  }
+
+  function applyViewportTransform(canvasEl, viewport, zoomChipId) {
+    if (!canvasEl || !viewport) return;
+    canvasEl.style.transform = `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.scale})`;
+    if (zoomChipId && $(zoomChipId)) {
+      $(zoomChipId).textContent = `${Math.round(viewport.scale * 100)}%`;
+    }
+  }
+
+  function clampViewport(viewport) {
+    viewport.scale = Math.max(viewport.minScale || MIN_VIEW_SCALE, Math.min(viewport.maxScale || MAX_VIEW_SCALE, viewport.scale || 1));
+    viewport.panX = Math.max(-240, Math.min(240, viewport.panX || 0));
+    viewport.panY = Math.max(-240, Math.min(240, viewport.panY || 0));
+  }
+
+  function screenPointToCanvasRaw(evt, canvasEl) {
+    const rect = canvasEl.getBoundingClientRect();
+    return {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top,
+      rect
+    };
+  }
+
+  function setCompass(needleId, heading) {
+    const needle = $(needleId);
+    if (!needle) return;
+    needle.style.transform = `rotate(${normalizeAngle(heading || 0)}deg)`;
+  }
+
+  function refreshViewportUI() {
+    applyViewportTransform($("trackCanvas"), state.navViewport, "navZoomChip");
+    applyViewportTransform($("editorCanvas"), state.editorViewport, "editorZoomChip");
+    setCompass("navCompassNeedle", state.orientation.heading || latestPose().heading || 0);
+    setCompass("editorCompassNeedle", state.orientation.heading || latestPose().heading || 0);
+  }
+
+  function attachViewportHandlers(wrapEl, canvasEl, viewport, type) {
+    if (!wrapEl || !canvasEl) return;
+
+    wrapEl.addEventListener("wheel", (evt) => {
+      evt.preventDefault();
+      const delta = evt.deltaY < 0 ? 1.08 : 0.92;
+      viewport.scale *= delta;
+      clampViewport(viewport);
+      refreshViewportUI();
+    }, { passive: false });
+
+    wrapEl.addEventListener("pointerdown", (evt) => {
+      if (type === "editor" && state.editorMode !== "idle") return;
+      wrapEl.setPointerCapture?.(evt.pointerId);
+      const gesture = {
+        pointerId: evt.pointerId,
+        startX: evt.clientX,
+        startY: evt.clientY,
+        startPanX: viewport.panX,
+        startPanY: viewport.panY
+      };
+      if (type === "nav") navCanvasGesture = gesture;
+      else editorCanvasGesture = gesture;
+    });
+
+    wrapEl.addEventListener("pointermove", (evt) => {
+      const gesture = type === "nav" ? navCanvasGesture : editorCanvasGesture;
+      if (!gesture || gesture.pointerId !== evt.pointerId) return;
+      viewport.panX = gesture.startPanX + (evt.clientX - gesture.startX);
+      viewport.panY = gesture.startPanY + (evt.clientY - gesture.startY);
+      clampViewport(viewport);
+      refreshViewportUI();
+    });
+
+    const endGesture = (evt) => {
+      const gesture = type === "nav" ? navCanvasGesture : editorCanvasGesture;
+      if (!gesture || gesture.pointerId !== evt.pointerId) return;
+      if (type === "nav") navCanvasGesture = null;
+      else editorCanvasGesture = null;
+    };
+    wrapEl.addEventListener("pointerup", endGesture);
+    wrapEl.addEventListener("pointercancel", endGesture);
+
+    let touchInfo = null;
+    wrapEl.addEventListener("touchstart", (evt) => {
+      if (evt.touches.length === 2) {
+        const [t1, t2] = evt.touches;
+        touchInfo = {
+          startDistance: Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY),
+          startScale: viewport.scale
+        };
+      }
+    }, { passive: true });
+
+    wrapEl.addEventListener("touchmove", (evt) => {
+      if (evt.touches.length === 2 && touchInfo) {
+        evt.preventDefault();
+        const [t1, t2] = evt.touches;
+        const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        viewport.scale = touchInfo.startScale * (distance / Math.max(touchInfo.startDistance, 1));
+        clampViewport(viewport);
+        refreshViewportUI();
+      }
+    }, { passive: false });
+
+    wrapEl.addEventListener("dblclick", () => {
+      viewport.scale = viewport.scale > 1 ? 1 : 1.8;
+      if (viewport.scale === 1) {
+        viewport.panX = 0;
+        viewport.panY = 0;
+      }
+      clampViewport(viewport);
+      refreshViewportUI();
+    });
+  }
+
+  function injectEnhancementUI() {
+    const navBtnRow = $("btnPosCorrection")?.closest(".big-actions");
+    if (navBtnRow && !$("btnGpsAnchorCreate")) {
+      const extra = document.createElement("div");
+      extra.className = "btns";
+      extra.style.marginTop = "10px";
+      extra.innerHTML = `
+        <button id="btnGpsAnchorCreate" class="secondary">以 GPS 新增標定點</button>
+        <button id="btnAnchorCorrection" class="secondary">以標定點校正目前位置</button>
+        <button id="btnGpsFusionCorrection" class="secondary">以 GPS 柔性校正</button>
+      `;
+      navBtnRow.parentNode.insertBefore(extra, navBtnRow.nextSibling);
+    }
+
+    const mapControls = $("btnEditorClear")?.parentElement;
+    if (mapControls && !$("btnEditorAnchor")) {
+      const btn = document.createElement("button");
+      btn.id = "btnEditorAnchor";
+      btn.className = "secondary";
+      btn.textContent = "新增標定點";
+      mapControls.insertBefore(btn, $("btnEditorUndo"));
+    }
+
+    const qrForm = $("btnSaveAnchor")?.parentElement;
+    if (qrForm && !$("btnUseGpsForDraftAnchor")) {
+      const btn = document.createElement("button");
+      btn.id = "btnUseGpsForDraftAnchor";
+      btn.textContent = "用 GPS 帶入標定點";
+      qrForm.insertBefore(btn, $("btnSaveAnchor"));
+    }
+
+    const correctionList = $("correctionList");
+    if (correctionList && !$("anchorCorrectionSelect")) {
+      const box = document.createElement("div");
+      box.className = "formbox";
+      box.innerHTML = `
+        <div class="row">
+          <label for="anchorCorrectionSelect">選擇標定點作為目前位置校正</label>
+          <select id="anchorCorrectionSelect" style="width:100%; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font-size:15px; background:white;">
+            <option value="">請先選擇標定點</option>
+          </select>
+        </div>
+        <div class="subtle" id="autoStepStatus">自動步長估算：尚未取得穩定 GPS 視窗。</div>
+      `;
+      correctionList.parentNode.insertBefore(box, correctionList);
+    }
+  }
+
+  function updateAnchorCorrectionSelect() {
+    const sel = $("anchorCorrectionSelect");
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = ['<option value="">請先選擇標定點</option>']
+      .concat(state.savedAnchors.map(a => `<option value="${a.id}">${a.name} (x:${a.x}, y:${a.y}${a.heading == null ? "" : ", h:" + a.heading})</option>`))
+      .join("");
+    if (state.savedAnchors.some(a => a.id === current)) sel.value = current;
+  }
+
+  function updateAutoStepStatus() {
+    const el = $("autoStepStatus");
+    if (!el) return;
+    const est = state.autoStepCalibration.lastEstimate;
+    if (!est) {
+      el.textContent = "自動步長估算：尚未取得穩定 GPS 視窗。";
+      return;
+    }
+    el.textContent = `自動步長估算：${fmt(est.stepLength, 2)} m/步，步頻 ${fmt(est.cadence, 2)} 步/秒，來源距離 ${fmt(est.distance, 1)} m。`;
+  }
+
+  function sampleCurrentGps(durationMs = 5000) {
+    return new Promise((resolve, reject) => {
+      if (!state.geoReading) {
+        reject(new Error("目前沒有 GPS 讀值"));
+        return;
+      }
+      const startedAt = Date.now();
+      const samples = [];
+      const timer = setInterval(() => {
+        if (state.geoReading) {
+          samples.push({ ...state.geoReading });
+        }
+        if (Date.now() - startedAt >= durationMs) {
+          clearInterval(timer);
+          const filtered = samples.filter((s) => Number.isFinite(s.accuracy) && s.accuracy <= Math.max(MIN_GPS_ACCURACY_METERS, 25));
+          const base = filtered.length >= 3 ? filtered : samples;
+          if (!base.length) {
+            reject(new Error("沒有收集到 GPS 樣本"));
+            return;
+          }
+          const weights = base.map((s) => 1 / Math.max(s.accuracy || MIN_GPS_ACCURACY_METERS, 1));
+          const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+          const avgLat = base.reduce((sum, s, i) => sum + s.lat * weights[i], 0) / weightSum;
+          const avgLng = base.reduce((sum, s, i) => sum + s.lng * weights[i], 0) / weightSum;
+          const avgAcc = base.reduce((sum, s) => sum + (s.accuracy || 0), 0) / base.length;
+          resolve({ lat: avgLat, lng: avgLng, accuracy: avgAcc, sampleCount: base.length });
+        }
+      }, SAMPLE_MS);
+    });
+  }
+
+  function ensureGeoAnchorReference() {
+    if (!state.anchor && state.geoReading) {
+      state.anchor = { lat: state.geoReading.lat, lng: state.geoReading.lng };
+    }
+  }
+
+  function applyPoseShift(dx, dy) {
+    state.trail = state.trail.map(p => ({ ...p, x: p.x + dx, y: p.y + dy }));
+    state.currentPose = { ...state.currentPose, x: state.currentPose.x + dx, y: state.currentPose.y + dy };
+  }
+
+  function applyHeadingRotation(delta) {
+    state.trail = state.trail.map((p) => {
+      const rotated = rotatePoint(p, delta);
+      return { ...p, x: rotated.x, y: rotated.y, heading: normalizeAngle((p.heading ?? 0) + delta) };
+    });
+    const rp = rotatePoint(state.currentPose, delta);
+    state.currentPose = { ...state.currentPose, x: rp.x, y: rp.y, heading: normalizeAngle((state.currentPose.heading ?? 0) + delta) };
+  }
+
+  function applyAnchorCorrection(anchorId) {
+    const anchor = state.savedAnchors.find(a => a.id === anchorId);
+    if (!anchor) {
+      setMessage("請先選擇有效的標定點。");
+      return;
+    }
+    const before = latestPose();
+    applyPoseShift(Number(anchor.x || 0) - before.x, Number(anchor.y || 0) - before.y);
+    if (anchor.heading != null && Number.isFinite(Number(anchor.heading))) {
+      applyHeadingRotation(angleDelta(Number(anchor.heading), before.heading ?? state.currentPose.heading));
+    }
+    state.corrections.unshift({
+      id: crypto.randomUUID(),
+      type: "anchor",
+      source: "manual-anchor",
+      beforeX: before.x,
+      beforeY: before.y,
+      afterX: Number(anchor.x || 0),
+      afterY: Number(anchor.y || 0),
+      afterHeading: anchor.heading,
+      ts: Date.now()
+    });
+    setMessage(`已用標定點 ${anchor.name} 校正目前位置。`);
+    updateArrivalProgress();
+    render();
+  }
+
+  async function createAnchorFromGpsDraft() {
+    try {
+      state.gpsAnchorSampling = true;
+      setMessage("GPS 標定點建立中，請稍微站定 5 秒。");
+      const sample = await sampleCurrentGps(5000);
+      ensureGeoAnchorReference();
+      const meters = latLngToMeters(state.anchor, { lat: sample.lat, lng: sample.lng });
+      $("xValue").value = meters.x.toFixed(2);
+      $("yValue").value = meters.y.toFixed(2);
+      $("headingValueInput").value = Math.round(normalizeAngle(state.orientation.heading || latestPose().heading || 0));
+      if (!$("anchorName").value.trim()) {
+        $("anchorName").value = `GPS 標定點 ${state.savedAnchors.length + 1}`;
+      }
+      generateQr();
+      setMessage(`已用 GPS 帶入標定點座標，accuracy 約 ${fmt(sample.accuracy, 1)} m。`);
+    } catch (e) {
+      setMessage("建立 GPS 標定點失敗：" + e.message);
+    } finally {
+      state.gpsAnchorSampling = false;
+      render();
+    }
+  }
+
+  async function createSavedAnchorFromGps() {
+    try {
+      state.gpsAnchorSampling = true;
+      setMessage("以 GPS 建立標定點中，請稍微站定 5 秒。");
+      const sample = await sampleCurrentGps(5000);
+      ensureGeoAnchorReference();
+      const meters = latLngToMeters(state.anchor, { lat: sample.lat, lng: sample.lng });
+      const heading = Math.round(normalizeAngle(state.orientation.heading || latestPose().heading || 0));
+      const anchor = {
+        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+        name: `GPS 標定點 ${state.savedAnchors.length + 1}`,
+        x: Number(meters.x.toFixed(2)),
+        y: Number(meters.y.toFixed(2)),
+        heading,
+        source: "gps",
+        gps: { lat: sample.lat, lng: sample.lng, accuracy: sample.accuracy },
+        payload: `INDOOR_ANCHOR:${Number(meters.x.toFixed(2))},${Number(meters.y.toFixed(2))},${heading}`,
+        createdAt: new Date().toISOString()
+      };
+      state.savedAnchors.unshift(anchor);
+      persistSavedAnchors();
+      setMessage(`已建立 GPS 標定點：${anchor.name}。`);
+      render();
+    } catch (e) {
+      setMessage("GPS 標定點建立失敗：" + e.message);
+    } finally {
+      state.gpsAnchorSampling = false;
+      render();
+    }
+  }
+
+  function applySoftGpsCorrection(sample, source = "gps-soft") {
+    if (!sample) return;
+    ensureGeoAnchorReference();
+    if (!state.anchor) return;
+    const measured = latLngToMeters(state.anchor, { lat: sample.lat, lng: sample.lng });
+    const before = latestPose();
+    const acc = Number(sample.accuracy || MIN_GPS_ACCURACY_METERS);
+    const weight = acc <= 6 ? 0.8 : acc <= 10 ? 0.6 : acc <= 15 ? 0.4 : 0.2;
+    const dx = (measured.x - before.x) * weight;
+    const dy = (measured.y - before.y) * weight;
+    applyPoseShift(dx, dy);
+    state.lastGeoCorrectionAt = Date.now();
+    state.corrections.unshift({
+      id: crypto.randomUUID(),
+      type: "position",
+      source,
+      beforeX: before.x,
+      beforeY: before.y,
+      afterX: before.x + dx,
+      afterY: before.y + dy,
+      dx, dy,
+      accuracy: acc,
+      ts: Date.now()
+    });
+  }
+
+  function updateAutoStepCalibration(sample) {
+    if (!sample || !state.autoStepCalibration.enabled) return;
+    ensureGeoAnchorReference();
+    if (!state.anchor) return;
+    const windowState = state.autoStepCalibration;
+    const now = Date.now();
+    if (!windowState.windowStart) {
+      windowState.windowStart = {
+        ts: now,
+        stepCount: state.stepCount,
+        pos: latLngToMeters(state.anchor, { lat: sample.lat, lng: sample.lng }),
+        accuracy: sample.accuracy
+      };
+      return;
+    }
+    const elapsed = (now - windowState.windowStart.ts) / 1000;
+    if (elapsed < 6) return;
+    const current = latLngToMeters(state.anchor, { lat: sample.lat, lng: sample.lng });
+    const distance = distanceBetween(windowState.windowStart.pos, current);
+    const stepsDelta = state.stepCount - windowState.windowStart.stepCount;
+    const cadence = stepsDelta / Math.max(elapsed, 0.1);
+    const headingDelta = Math.abs(angleDelta(state.orientation.heading || latestPose().heading || 0, latestPose().heading || 0));
+    if (distance >= 6 && stepsDelta >= 8 && cadence >= 0.6 && cadence <= 3.2 && Number(sample.accuracy || 999) <= 15 && headingDelta <= 45) {
+      const estimated = distance / stepsDelta;
+      if (estimated >= 0.35 && estimated <= 1.2) {
+        state.stepLength = Number((state.stepLength * 0.8 + estimated * 0.2).toFixed(3));
+        state.averageWalkingSpeed = Number((state.averageWalkingSpeed * 0.8 + (distance / elapsed) * 0.2).toFixed(3));
+        if ($("stepLength")) $("stepLength").value = String(Math.max(0.4, Math.min(1.0, state.stepLength)));
+        windowState.lastEstimate = { stepLength: state.stepLength, cadence, distance, elapsed };
+      }
+    }
+    windowState.windowStart = {
+      ts: now,
+      stepCount: state.stepCount,
+      pos: current,
+      accuracy: sample.accuracy
+    };
+    updateAutoStepStatus();
+  }
+
+  function average(nums) {
+    return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+  }
+
+  function fmt(n, d = 2) {
+    return Number.isFinite(n) ? n.toFixed(d) : "-";
+  }
+
+  function normalizeAngle(deg) {
+    let a = deg % 360;
+    if (a < 0) a += 360;
+    return a;
+  }
+
+  function angleDelta(target, current) {
+    let d = normalizeAngle(target) - normalizeAngle(current);
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    return d;
+  }
+
+  function rotatePoint(point, deg) {
+    const rad = (deg * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return {
+      x: point.x * cos - point.y * sin,
+      y: point.x * sin + point.y * cos
+    };
+  }
+
+  function latLngToMeters(anchor, point) {
+    if (!anchor || !point) return { x: 0, y: 0 };
+    const latScale = 111320;
+    const lngScale = 111320 * Math.cos((anchor.lat * Math.PI) / 180);
+    return {
+      x: (point.lng - anchor.lng) * lngScale,
+      y: -(point.lat - anchor.lat) * latScale
+    };
+  }
+
+  function latestPose() {
+    return state.trail[state.trail.length - 1] || state.currentPose;
+  }
+
+  function setMessage(msg) {
+    state.message = msg;
+    render();
+  }
+
+  function gpsBadgeText() {
+    const acc = state.geoReading?.accuracy;
+    if (!acc) return "無GPS";
+    if (acc <= 10) return "GPS佳";
+    if (acc <= 25) return "GPS可用";
+    return "GPS偏弱";
+  }
+
+  function renderCorrections() {
+    const box = $("correctionList");
+    if (!state.corrections.length) {
+      box.innerHTML = `<div class="item">尚未進行校正。建議先在入口設定起點，追蹤後到窗邊做位置校正，再做方向校正。</div>`;
+      return;
+    }
+    box.innerHTML = state.corrections.map((c) => {
+      const top = `<div class="item-top"><span class="badge">${c.type}</span><span style="color:#64748b;">${new Date(c.ts).toLocaleTimeString()}</span></div>`;
+      if (c.type === "position") {
+        return `<div class="item">${top}
+          <div>before: (${fmt(c.beforeX)}, ${fmt(c.beforeY)})</div>
+          <div>after: (${fmt(c.afterX)}, ${fmt(c.afterY)})</div>
+          <div>accuracy: ${fmt(c.accuracy, 1)} m</div>
+          <div>samples: ${c.sampleCount ?? "-"}</div>
+          <div>offset: dx ${fmt(c.dx)} / dy ${fmt(c.dy)}</div>
+        </div>`;
+      }
+      if (c.type === "heading") {
+        return `<div class="item">${top}
+          <div>before: ${fmt(c.beforeHeading, 1)}°</div>
+          <div>after: ${fmt(c.afterHeading, 1)}°</div>
+          <div>delta: ${fmt(c.delta, 1)}°</div>
+          <div>samples: ${c.sampleCount ?? "-"}</div>
+        </div>`;
+      }
+      return `<div class="item">${top}
+        <div>before: (${fmt(c.beforeX)}, ${fmt(c.beforeY)})</div>
+        <div>after: (${fmt(c.afterX)}, ${fmt(c.afterY)})</div>
+        ${c.afterHeading != null ? `<div>heading: ${fmt(c.afterHeading, 1)}°</div>` : ``}
+      </div>`;
+    }).join("");
+  }
+
+
+  function drawMapElementsOnCanvas(ctx, withLabels = true) {
+    if (!state.showMapOverlay || !state.mapElements.length) return;
+
+    state.mapElements.slice().reverse().forEach((el) => {
+      const isSelected = el.id === state.selectedMapElementId;
+      const semantic = el.semantic || "walkable";
+      if (el.type === "point") {
+        const x = CENTER + Number(el.x || 0) * DEFAULT_WORLD_SCALE;
+        const y = CENTER + Number(el.y || 0) * DEFAULT_WORLD_SCALE;
+        ctx.fillStyle = isSelected ? "#ef4444" : (semantic === "landmark" ? "#0ea5e9" : semantic === "restricted" ? "#f59e0b" : "#059669");
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        if (withLabels) {
+          ctx.fillStyle = "#065f46";
+          ctx.font = "12px system-ui, sans-serif";
+          ctx.fillText(el.name || "point", x + 8, y - 8);
+        }
+      } else if (el.type === "line" && Array.isArray(el.points) && el.points.length >= 2) {
+        const semantic = el.semantic || "walkable";
+        ctx.strokeStyle = isSelected ? "#ef4444" : (semantic === "wall" ? "#111827" : semantic === "restricted" ? "#f59e0b" : "#7c3aed");
+        ctx.lineWidth = semantic === "wall" ? 5 : (isSelected ? 4 : 3);
+        ctx.beginPath();
+        el.points.forEach((p, i) => {
+          const x = CENTER + Number(p.x || 0) * DEFAULT_WORLD_SCALE;
+          const y = CENTER + Number(p.y || 0) * DEFAULT_WORLD_SCALE;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        if (withLabels) {
+          const midIdx = Math.floor(el.points.length / 2);
+          const mid = el.points[midIdx] || el.points[0];
+          ctx.fillStyle = "#5b21b6";
+          ctx.font = "12px system-ui, sans-serif";
+          ctx.fillText(el.name || "line", CENTER + Number(mid.x || 0) * DEFAULT_WORLD_SCALE + 8, CENTER + Number(mid.y || 0) * DEFAULT_WORLD_SCALE - 8);
+        }
+      } else if (el.type === "area" && Array.isArray(el.points) && el.points.length >= 3) {
+        ctx.fillStyle = isSelected ? "rgba(239,68,68,0.14)" : (semantic === "restricted" ? "rgba(239,68,68,0.12)" : "rgba(234,179,8,0.14)");
+        ctx.strokeStyle = isSelected ? "#ef4444" : (semantic === "restricted" ? "#dc2626" : "#ca8a04");
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.beginPath();
+        el.points.forEach((p, i) => {
+          const x = CENTER + Number(p.x || 0) * DEFAULT_WORLD_SCALE;
+          const y = CENTER + Number(p.y || 0) * DEFAULT_WORLD_SCALE;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        if (withLabels) {
+          const p0 = el.points[0];
+          ctx.fillStyle = "#92400e";
+          ctx.font = "12px system-ui, sans-serif";
+          ctx.fillText(el.name || "area", CENTER + Number(p0.x || 0) * DEFAULT_WORLD_SCALE + 8, CENTER + Number(p0.y || 0) * DEFAULT_WORLD_SCALE - 8);
+        }
+      }
+    });
+  }
+
+
+  function drawTrack() {
+    ctx.clearRect(0, 0, TRACK_SIZE, TRACK_SIZE);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(CENTER, 0);
+    ctx.lineTo(CENTER, TRACK_SIZE);
+    ctx.moveTo(0, CENTER);
+    ctx.lineTo(TRACK_SIZE, CENTER);
+    ctx.stroke();
+
+    drawMapElementsOnCanvas(ctx, true);
+
+    if (state.showAnchorOverlay && state.savedAnchors.length) {
+      ctx.font = "12px system-ui, sans-serif";
+      state.savedAnchors.forEach((a) => {
+        const x = CENTER + Number(a.x || 0) * DEFAULT_WORLD_SCALE;
+        const y = CENTER + Number(a.y || 0) * DEFAULT_WORLD_SCALE;
+
+        ctx.fillStyle = "#2563eb";
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (a.heading != null && Number.isFinite(Number(a.heading))) {
+          const rad = (Number(a.heading) * Math.PI) / 180;
+          ctx.strokeStyle = "#2563eb";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + Math.sin(rad) * 18, y - Math.cos(rad) * 18);
+          ctx.stroke();
+        }
+
+        const label = a.name || "anchor";
+        const textX = x + 10;
+        const textY = y - 10;
+        const metrics = ctx.measureText(label);
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.fillRect(textX - 4, textY - 12, metrics.width + 8, 18);
+        ctx.fillStyle = "#1e3a8a";
+        ctx.fillText(label, textX, textY);
+      });
+    }
+
+    if (!state.trail.length) return;
+
+    ctx.strokeStyle = "#0f172a";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    state.trail.forEach((p, i) => {
+      const x = CENTER + p.x * DEFAULT_WORLD_SCALE;
+      const y = CENTER + p.y * DEFAULT_WORLD_SCALE;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    const start = state.trail[0];
+    const last = latestPose();
+
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    if (target) {
+      const points = state.routeMode === "multi" ? getSelectedRoutePoints() : [{ id: "__current__", x: Number(last.x||0), y: Number(last.y||0) }, { ...target, x: Number(target.x||0), y: Number(target.y||0) }];
+
+      points.forEach((p, i) => {
+        if (i === 0) return;
+        const prev = points[i - 1];
+        const x1 = CENTER + Number(prev.x || 0) * DEFAULT_WORLD_SCALE;
+        const y1 = CENTER + Number(prev.y || 0) * DEFAULT_WORLD_SCALE;
+        const x2 = CENTER + Number(p.x || 0) * DEFAULT_WORLD_SCALE;
+        const y2 = CENTER + Number(p.y || 0) * DEFAULT_WORLD_SCALE;
+        const activeLeg = i - 1 === state.activeLegIndex;
+
+        ctx.strokeStyle = activeLeg ? "#dc2626" : "#ea580c";
+        ctx.lineWidth = activeLeg ? 4 : 3;
+        ctx.setLineDash(activeLeg ? [10, 6] : [8, 8]);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        if (activeLeg) {
+          const ang = Math.atan2(y2 - y1, x2 - x1);
+          const arrowLen = 14;
+          ctx.fillStyle = "#dc2626";
+          ctx.beginPath();
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - arrowLen * Math.cos(ang - Math.PI / 6), y2 - arrowLen * Math.sin(ang - Math.PI / 6));
+          ctx.lineTo(x2 - arrowLen * Math.cos(ang + Math.PI / 6), y2 - arrowLen * Math.sin(ang + Math.PI / 6));
+          ctx.closePath();
+          ctx.fill();
+        }
+      });
+      ctx.setLineDash([]);
+
+      points.slice(1).forEach((p, idx) => {
+        const px = CENTER + Number(p.x || 0) * DEFAULT_WORLD_SCALE;
+        const py = CENTER + Number(p.y || 0) * DEFAULT_WORLD_SCALE;
+        ctx.fillStyle = idx === points.length - 2 ? "#ea580c" : "#f59e0b";
+        ctx.beginPath();
+        ctx.arc(px, py, idx === points.length - 2 ? 9 : 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = "12px system-ui, sans-serif";
+        const isFinal = idx === points.length - 2;
+        const isActiveNext = idx === state.activeLegIndex;
+        const label = isFinal
+          ? `${p.name || "目標"} / ${fmt(routeDistance(points), 1)}m`
+          : `${isActiveNext ? "下一點" : "中繼"}：${p.name || "waypoint"}`;
+        const lx = px + 12;
+        const ly = py + 18;
+        const metrics = ctx.measureText(label);
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.fillRect(lx - 4, ly - 12, metrics.width + 8, 18);
+        ctx.fillStyle = idx === points.length - 2 ? "#9a3412" : "#92400e";
+        ctx.fillText(label, lx, ly);
+      });
+    }
+
+    ctx.fillStyle = "#16a34a";
+    ctx.beginPath();
+    ctx.arc(CENTER + start.x * DEFAULT_WORLD_SCALE, CENTER + start.y * DEFAULT_WORLD_SCALE, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#dc2626";
+    ctx.beginPath();
+    ctx.arc(CENTER + last.x * DEFAULT_WORLD_SCALE, CENTER + last.y * DEFAULT_WORLD_SCALE, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+
+  function setNavTarget() {
+    const id = $("navTargetSelect").value;
+    state.navTargetId = id;
+    state.waypointIds = state.waypointIds.filter(wid => wid !== id);
+    const target = state.savedAnchors.find(a => a.id === id);
+    state.activeLegIndex = 0;
+    state.arrivedTarget = false;
+    state.lastArrivalNoticeKey = "";
+    resetRouteProgressBaseline();
+    if (target) {
+      setMessage(`已設 ${target.name} 為導航目標。`);
+    } else {
+      setMessage("已清除導航目標。");
+    }
+    render();
+    updateGuidanceBanner(Boolean(target));
+  }
+
+  function clearNavTarget() {
+    state.navTargetId = "";
+    state.activeLegIndex = 0;
+    state.arrivedTarget = false;
+    state.lastArrivalNoticeKey = "";
+    setMessage("已清除導航目標。");
+    render();
+  }
+
+
+
+  function getSelectedRoutePoints() {
+    if (state.routeMode === "network") {
+      return computeNetworkRoute();
+    }
+
+    const points = [];
+    const current = latestPose();
+    points.push({ id: "__current__", name: "目前位置", x: Number(current.x || 0), y: Number(current.y || 0), heading: Number(current.heading || 0) });
+    state.waypointIds.forEach((id) => {
+      const a = state.savedAnchors.find(x => x.id === id);
+      if (a) points.push({ ...a, x: Number(a.x || 0), y: Number(a.y || 0) });
+    });
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    if (target) points.push({ ...target, x: Number(target.x || 0), y: Number(target.y || 0) });
+    return points;
+  }
+
+  function routeDistance(points) {
+    let total = 0;
+    for (let i = 1; i < points.length; i++) {
+      const dx = Number(points[i].x || 0) - Number(points[i - 1].x || 0);
+      const dy = Number(points[i].y || 0) - Number(points[i - 1].y || 0);
+      total += Math.sqrt(dx * dx + dy * dy);
+    }
+    return total;
+  }
+
+  function renderRouteControls() {
+    const targetSel = $("navTargetSelect");
+    const wpSel = $("routeWaypointsSelect");
+    if (!targetSel || !wpSel) return;
+
+    const currentTarget = state.navTargetId || "";
+    targetSel.innerHTML = ['<option value="">請先選擇目標</option>']
+      .concat(state.savedAnchors.map(a => `<option value="${a.id}">${a.name} (x:${a.x}, y:${a.y}${a.heading == null ? "" : ", h:" + a.heading})</option>`))
+      .join("");
+    targetSel.value = currentTarget;
+
+    wpSel.innerHTML = state.savedAnchors.map(a => `<option value="${a.id}">${a.name} (x:${a.x}, y:${a.y}${a.heading == null ? "" : ", h:" + a.heading})</option>`).join("");
+    Array.from(wpSel.options).forEach(opt => {
+      opt.selected = state.waypointIds.includes(opt.value);
+    });
+
+    $("routeModeSelect").value = state.routeMode;
+    wpSel.disabled = state.routeMode === "network";
+    $("btnApplyRoute").disabled = state.routeMode === "network";
+    $("btnClearRoute").disabled = state.routeMode === "network";
+  }
+
+  function updateTargetSummary() {
+    const summary = $("targetSummary");
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    if (!target) {
+      summary.textContent = "尚未設定導航目標。";
+      return;
+    }
+
+    const current = latestPose();
+    const legs = computeRouteLegs();
+    const active = currentActiveLeg();
+    if (!active) {
+      summary.textContent = "尚未設定可用路徑。";
+      return;
+    }
+
+    const totalDist = state.routeMode === "multi"
+      ? routeDistance(getSelectedRoutePoints())
+      : state.routeMode === "network"
+      ? routeDistance(getSelectedRoutePoints())
+      : distanceBetween(current, target);
+
+    const nextDist = distanceBetween(current, active.to);
+    const dx1 = Number(active.to.x || 0) - Number(current.x || 0);
+    const dy1 = Number(active.to.y || 0) - Number(current.y || 0);
+    const bearing = normalizeAngle((Math.atan2(dx1, -dy1) * 180) / Math.PI);
+    const turn = angleDelta(bearing, current.heading || 0);
+    const turnText = turn > 15 ? `右轉 ${fmt(turn, 0)}°` : turn < -15 ? `左轉 ${fmt(Math.abs(turn), 0)}°` : "直行";
+    const via = state.routeMode === "multi" && state.waypointIds.length ? `，共 ${legs.length} 段，目前第 ${state.activeLegIndex + 1} 段` : state.routeMode === "network" ? `，沿線段自動規劃，共 ${legs.length} 段，目前第 ${state.activeLegIndex + 1} 段` : "";
+
+    if (state.arrivedTarget) {
+      summary.textContent = `已到達目標：${target.name}。總路徑約 ${fmt(totalDist, 1)} m。`;
+      return;
+    }
+
+    summary.textContent = `目標：${target.name}；總距離約 ${fmt(totalDist, 1)} m${via}；下一點 ${active.to.name || "目標"}，距離約 ${fmt(nextDist, 1)} m；建議 ${turnText}。`;
+  }
+
+  function setRouteMode() {
+    state.routeMode = $("routeModeSelect").value || "direct";
+    render();
+  }
+
+  function applyWaypointSelection() {
+    const sel = $("routeWaypointsSelect");
+    state.waypointIds = Array.from(sel.selectedOptions).map(o => o.value).filter(id => id !== state.navTargetId);
+    state.activeLegIndex = 0;
+    state.arrivedTarget = false;
+    state.lastArrivalNoticeKey = "";
+    resetRouteProgressBaseline();
+    render();
+  }
+
+  function clearRouteWaypoints() {
+    state.waypointIds = [];
+    state.activeLegIndex = 0;
+    state.arrivedTarget = false;
+    state.lastArrivalNoticeKey = "";
+    resetRouteProgressBaseline();
+    render();
+  }
+
+  function addWaypointFromList(id) {
+    if (!id || id === state.navTargetId) return;
+    if (!state.waypointIds.includes(id)) state.waypointIds.push(id);
+    state.routeMode = "multi";
+    state.activeLegIndex = 0;
+    state.arrivedTarget = false;
+    state.lastArrivalNoticeKey = "";
+    resetRouteProgressBaseline();
+    switchPage("navPage");
+    setMessage("已加入中繼校正點。");
+    render();
+  }
+
+
+
+  function computeRouteLegs() {
+    const points = getSelectedRoutePoints();
+    if (points.length < 2) return [];
+    const legs = [];
+    for (let i = 1; i < points.length; i++) {
+      legs.push({
+        from: points[i - 1],
+        to: points[i],
+        index: i - 1,
+        isFinal: i === points.length - 1
+      });
+    }
+    return legs;
+  }
+
+  function currentActiveLeg() {
+    const legs = computeRouteLegs();
+    if (!legs.length) return null;
+    const idx = Math.max(0, Math.min(state.activeLegIndex, legs.length - 1));
+    return legs[idx];
+  }
+
+  function distanceBetween(a, b) {
+    const dx = Number(b.x || 0) - Number(a.x || 0);
+    const dy = Number(b.y || 0) - Number(a.y || 0);
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function updateArrivalProgress() {
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    if (!target) return;
+
+    const current = latestPose();
+    const legs = computeRouteLegs();
+    if (!legs.length) return;
+
+    const active = currentActiveLeg();
+    if (!active) return;
+
+    const dist = distanceBetween(current, active.to);
+    const legKey = `${active.index}:${active.to.id || active.to.name || "target"}`;
+
+    if (dist <= state.arrivalThreshold && state.lastArrivalNoticeKey !== legKey) {
+      state.lastArrivalNoticeKey = legKey;
+
+      if (active.isFinal) {
+        state.arrivedTarget = true;
+        setMessage(`已接近最終目標：${active.to.name || "目標"}。`);
+        speakText(`已到達目標，${active.to.name || "目標"}`);
+        if (state.navSessionState !== "idle") finishNavSession("arrived");
+      } else {
+        const nextIndex = Math.min(state.activeLegIndex + 1, legs.length - 1);
+        const nextLeg = legs[nextIndex];
+        state.activeLegIndex = nextIndex;
+        setMessage(`已到達中繼點：${active.to.name || "中繼點"}，自動切換下一段：前往 ${nextLeg.to.name || "下一點"}。`);
+        speakText(`已到達 ${active.to.name || "中繼點"}，接下來前往 ${nextLeg.to.name || "下一點"}`);
+      }
+      render();
+    }
+  }
+
+
+
+  function speakText(text) {
+    if (!state.voiceGuideEnabled) return;
+    if (!("speechSynthesis" in window)) return;
+    if (!text || text === state.lastSpokenText) return;
+    state.lastSpokenText = text;
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "zh-TW";
+      utter.rate = 1;
+      window.speechSynthesis.speak(utter);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function buildGuidanceText() {
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    if (!target) {
+      return "尚未設定導航目標。";
+    }
+    if (state.arrivedTarget) {
+      return `已到達目標 ${target.name}。`;
+    }
+
+    const active = currentActiveLeg();
+    if (!active) {
+      return "尚未設定可用路徑。";
+    }
+
+    const current = latestPose();
+    const dx = Number(active.to.x || 0) - Number(current.x || 0);
+    const dy = Number(active.to.y || 0) - Number(current.y || 0);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const bearing = normalizeAngle((Math.atan2(dx, -dy) * 180) / Math.PI);
+    const turn = angleDelta(bearing, current.heading || 0);
+
+    let turnText = "直行";
+    if (turn > 45) turnText = `右轉 ${fmt(turn, 0)} 度`;
+    else if (turn > 15) turnText = `稍微右轉 ${fmt(turn, 0)} 度`;
+    else if (turn < -45) turnText = `左轉 ${fmt(Math.abs(turn), 0)} 度`;
+    else if (turn < -15) turnText = `稍微左轉 ${fmt(Math.abs(turn), 0)} 度`;
+
+    const nextName = active.to.name || (active.isFinal ? "目標" : "下一點");
+    return `前往 ${nextName}，距離約 ${fmt(dist, 1)} 公尺，建議 ${turnText}。`;
+  }
+
+  function updateGuidanceBanner(forceSpeak = false) {
+    const text = buildGuidanceText();
+    state.currentGuidanceText = text;
+    const el = $("guidanceBanner");
+    if (el) el.textContent = text;
+
+    if (forceSpeak) {
+      speakText(text);
+      return;
+    }
+
+    const active = currentActiveLeg();
+    if (!active || state.arrivedTarget) return;
+
+    const current = latestPose();
+    const dx = Number(active.to.x || 0) - Number(current.x || 0);
+    const dy = Number(active.to.y || 0) - Number(current.y || 0);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const bearing = normalizeAngle((Math.atan2(dx, -dy) * 180) / Math.PI);
+    const turn = angleDelta(bearing, current.heading || 0);
+    const turnBucket = turn > 45 ? "right-hard" : turn > 15 ? "right-soft" : turn < -45 ? "left-hard" : turn < -15 ? "left-soft" : "straight";
+    const distBucket = dist < 3 ? "near" : dist < 8 ? "mid" : "far";
+    const cueKey = `${state.activeLegIndex}:${turnBucket}:${distBucket}`;
+    if (cueKey !== state.lastTurnCueKey && dist < 8) {
+      state.lastTurnCueKey = cueKey;
+      speakText(text);
+    }
+  }
+
+
+
+  function getTurnGuidance() {
+    const active = currentActiveLeg();
+    if (!active) {
+      return {
+        text: "尚未設定",
+        distanceText: "-",
+        angleText: "-",
+        targetText: "-",
+        arrowDeg: 0
+      };
+    }
+
+    const current = latestPose();
+    const dx = Number(active.to.x || 0) - Number(current.x || 0);
+    const dy = Number(active.to.y || 0) - Number(current.y || 0);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const bearing = normalizeAngle((Math.atan2(dx, -dy) * 180) / Math.PI);
+    const turn = angleDelta(bearing, current.heading || 0);
+
+    let text = "直行";
+    if (turn > 120) text = "大幅右轉";
+    else if (turn > 45) text = "右轉";
+    else if (turn > 15) text = "微右轉";
+    else if (turn < -120) text = "大幅左轉";
+    else if (turn < -45) text = "左轉";
+    else if (turn < -15) text = "微左轉";
+
+    return {
+      text,
+      distanceText: `${fmt(dist, 1)} m`,
+      angleText: `${turn >= 0 ? "+" : ""}${fmt(turn, 0)}°`,
+      targetText: active.to.name || (active.isFinal ? "目標" : "下一點"),
+      arrowDeg: turn
+    };
+  }
+
+  function renderArrowGuidance() {
+    const data = getTurnGuidance();
+    const needle = $("arrowNeedle");
+    if (needle) {
+      const clamped = Math.max(-160, Math.min(160, Number(data.arrowDeg || 0)));
+      needle.style.transform = `translate(-50%,-70px) rotate(${clamped}deg)`;
+      needle.style.background = data.text.includes("左") ? "#2563eb" : data.text.includes("右") ? "#dc2626" : "#16a34a";
+    }
+    $("turnArrowText").textContent = data.text;
+    $("turnDistanceText").textContent = data.distanceText;
+    $("turnAngleText").textContent = data.angleText;
+    $("turnTargetText").textContent = data.targetText;
+  }
+
+
+
+  function getCurrentRouteTotalDistance() {
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    if (!target) return 0;
+    if (state.routeMode === "multi") {
+      return routeDistance(getSelectedRoutePoints());
+    }
+    return distanceBetween(latestPose(), target);
+  }
+
+  function getRemainingRouteDistance() {
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    if (!target) return 0;
+
+    if (state.routeMode !== "multi") {
+      return distanceBetween(latestPose(), target);
+    }
+
+    const active = currentActiveLeg();
+    const legs = computeRouteLegs();
+    if (!active || !legs.length) return 0;
+
+    let remaining = distanceBetween(latestPose(), active.to);
+    for (let i = state.activeLegIndex + 1; i < legs.length; i++) {
+      remaining += distanceBetween(legs[i].from, legs[i].to);
+    }
+    return remaining;
+  }
+
+  function formatEta(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "-";
+    if (seconds < 60) return `${Math.max(1, Math.round(seconds))} 秒`;
+    const mins = Math.round(seconds / 60);
+    if (mins < 60) return `${mins} 分`;
+    const hrs = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem ? `${hrs} 小時 ${rem} 分` : `${hrs} 小時`;
+  }
+
+  function renderRouteProgress() {
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    const label = $("routeProgressLabel");
+    const percent = $("routeProgressPercent");
+    const bar = $("routeProgressBar");
+
+    if (!target) {
+      label.textContent = "尚未設定目標";
+      percent.textContent = "0%";
+      bar.style.width = "0%";
+      $("routeTraveledText").textContent = "-";
+      $("routeRemainingText").textContent = "-";
+      $("routeTotalText").textContent = "-";
+      $("routeEtaText").textContent = "-";
+      return;
+    }
+
+    const total = Math.max(state.startedRouteDistance || getCurrentRouteTotalDistance(), 0.01);
+    const remaining = Math.max(getRemainingRouteDistance(), 0);
+    const traveled = Math.max(total - remaining, 0);
+    const p = state.arrivedTarget ? 100 : Math.max(0, Math.min(100, (traveled / total) * 100));
+    const legs = computeRouteLegs();
+    const etaSeconds = remaining / Math.max(state.averageWalkingSpeed || 1.15, 0.2);
+
+    const sessionPrefix = state.navSessionState === "active" ? "導航中 / " : state.navSessionState === "paused" ? "已暫停 / " : "";
+    label.textContent = state.arrivedTarget
+      ? `已到達 ${target.name}`
+      : state.routeMode === "multi"
+      ? `${sessionPrefix}第 ${Math.min(state.activeLegIndex + 1, Math.max(legs.length, 1))} / ${Math.max(legs.length, 1)} 段`
+      : state.routeMode === "network"
+      ? `${sessionPrefix}路網導航 ${Math.min(state.activeLegIndex + 1, Math.max(legs.length, 1))} / ${Math.max(legs.length, 1)} 段`
+      : `${sessionPrefix}單段導航中`;
+    percent.textContent = `${Math.round(p)}%`;
+    bar.style.width = `${p}%`;
+
+    $("routeTraveledText").textContent = `${traveled.toFixed(1)} m`;
+    $("routeRemainingText").textContent = `${remaining.toFixed(1)} m`;
+    $("routeTotalText").textContent = `${total.toFixed(1)} m`;
+    $("routeEtaText").textContent = state.arrivedTarget ? "已到達" : formatEta(etaSeconds);
+  }
+
+  function resetRouteProgressBaseline() {
+    const total = getCurrentRouteTotalDistance();
+    state.startedRouteDistance = total > 0 ? total : 0;
+  }
+
+
+
+  function loadNavHistory() {
+    try {
+      const raw = localStorage.getItem("indoor_nav_history");
+      state.navHistory = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(state.navHistory)) state.navHistory = [];
+    } catch (e) {
+      state.navHistory = [];
+    }
+    renderNavHistory();
+  }
+
+  function persistNavHistory() {
+    localStorage.setItem("indoor_nav_history", JSON.stringify(state.navHistory));
+    renderNavHistory();
+  }
+
+  function renderNavHistory() {
+    const el = $("navHistoryList");
+    if (!el) return;
+    if (!state.navHistory.length) {
+      el.innerHTML = '<div class="item">尚無導航歷史。</div>';
+      return;
+    }
+    el.innerHTML = state.navHistory.map((h) => `
+      <div class="item">
+        <div class="item-top">
+          <strong>${h.targetName || "未命名目標"}</strong>
+          <span class="badge">${h.status || "done"}</span>
+        </div>
+        <div>開始：${h.startedAt ? new Date(h.startedAt).toLocaleString() : "-"}</div>
+        <div>結束：${h.endedAt ? new Date(h.endedAt).toLocaleString() : "-"}</div>
+        <div>耗時：${h.durationText || "-"}</div>
+        <div>總距離：${h.totalDistanceText || "-"}</div>
+        <div>路徑模式：${h.routeMode === "multi" ? "多段路徑" : "直接連線"}</div>
+      </div>
+    `).join("");
+  }
+
+  function sessionDurationMs(nowTs = Date.now()) {
+    if (!state.navSessionStartedAt) return 0;
+    const end = state.navSessionState === "paused" && state.navSessionPausedAt ? state.navSessionPausedAt : nowTs;
+    return Math.max(0, end - state.navSessionStartedAt - state.navPauseAccumulatedMs);
+  }
+
+  function durationTextFromMs(ms) {
+    const sec = Math.round(ms / 1000);
+    if (sec < 60) return `${sec} 秒`;
+    const min = Math.floor(sec / 60);
+    const rem = sec % 60;
+    if (min < 60) return rem ? `${min} 分 ${rem} 秒` : `${min} 分`;
+    const hr = Math.floor(min / 60);
+    const minRem = min % 60;
+    return minRem ? `${hr} 小時 ${minRem} 分` : `${hr} 小時`;
+  }
+
+  function startNavSession() {
+    if (!state.navTargetId) {
+      setMessage("請先設定導航目標再開始導航。");
+      return;
+    }
+    state.navSessionState = "active";
+    state.navSessionStartedAt = Date.now();
+    state.navSessionPausedAt = null;
+    state.navPauseAccumulatedMs = 0;
+    state.arrivedTarget = false;
+    state.lastArrivalNoticeKey = "";
+    state.activeLegIndex = 0;
+    resetRouteProgressBaseline();
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    setMessage(`開始導航：${target ? target.name : "目標"}`);
+    speakText(`開始導航，前往 ${target ? target.name : "目標"}`);
+    render();
+  }
+
+  function pauseNavSession() {
+    if (state.navSessionState !== "active") return;
+    state.navSessionState = "paused";
+    state.navSessionPausedAt = Date.now();
+    setMessage("導航已暫停。");
+    speakText("導航已暫停");
+    render();
+  }
+
+  function resumeNavSession() {
+    if (state.navSessionState !== "paused" || !state.navSessionPausedAt) return;
+    state.navPauseAccumulatedMs += Date.now() - state.navSessionPausedAt;
+    state.navSessionPausedAt = null;
+    state.navSessionState = "active";
+    setMessage("導航已繼續。");
+    speakText("導航已繼續");
+    render();
+  }
+
+  function finishNavSession(finalStatus = "completed") {
+    if (state.navSessionState === "idle" || !state.navSessionStartedAt) return;
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    const total = Math.max(state.startedRouteDistance || getCurrentRouteTotalDistance(), 0);
+    const record = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+      targetId: state.navTargetId,
+      targetName: target ? target.name : "未命名目標",
+      startedAt: state.navSessionStartedAt,
+      endedAt: Date.now(),
+      durationMs: sessionDurationMs(Date.now()),
+      durationText: durationTextFromMs(sessionDurationMs(Date.now())),
+      totalDistance: total,
+      totalDistanceText: `${total.toFixed(1)} m`,
+      routeMode: state.routeMode,
+      waypointCount: state.waypointIds.length,
+      status: finalStatus
+    };
+    state.navHistory.unshift(record);
+    persistNavHistory();
+    state.navSessionState = "idle";
+    state.navSessionStartedAt = null;
+    state.navSessionPausedAt = null;
+    state.navPauseAccumulatedMs = 0;
+    setMessage(finalStatus === "arrived" ? "本次導航完成並已記錄。" : "本次導航已結束並記錄。");
+    render();
+  }
+
+  function exportNavHistory() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      history: state.navHistory
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `indoor-nav-history-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setMessage("已匯出導航歷史。");
+  }
+
+
+
+  function loadMapElements() {
+    try {
+      const raw = localStorage.getItem("indoor_map_elements");
+      state.mapElements = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(state.mapElements)) state.mapElements = [];
+    } catch (e) {
+      state.mapElements = [];
+    }
+    renderMapElements();
+  }
+
+  function persistMapElements() {
+    localStorage.setItem("indoor_map_elements", JSON.stringify(state.mapElements));
+    renderMapElements();
+    drawEditorCanvas();
+  }
+
+  function setEditorMessage(text) {
+    state.editorMessage = text;
+    const el = $("editorMessageBox");
+    if (el) el.textContent = text;
+  }
+
+  function setEditorMode(mode) {
+    state.editorMode = mode;
+    state.editorDraftPoints = [];
+    const modeText = mode === "point" ? "point" : mode === "line" ? "line" : mode === "area" ? "area" : "idle";
+    setEditorMessage(
+      mode === "point" ? "點位模式：點一下畫布建立點位。" :
+      mode === "line" ? "線段模式：依序點兩個位置建立線段。" :
+      mode === "area" ? "區域模式：依序點四個角點建立矩形/多邊形區域。" :
+      "瀏覽模式：查看目前地圖元素。"
+    );
+    render();
+  }
+
+  function editorCanvasToWorld(evt) {
+    const canvas = $("editorCanvas");
+    const rect = canvas.getBoundingClientRect();
+    const px = ((evt.clientX - rect.left) / Math.max(state.editorViewport.scale, 0.01)) - (state.editorViewport.panX / Math.max(state.editorViewport.scale, 0.01));
+    const py = ((evt.clientY - rect.top) / Math.max(state.editorViewport.scale, 0.01)) - (state.editorViewport.panY / Math.max(state.editorViewport.scale, 0.01));
+    return {
+      x: (px - CENTER) / DEFAULT_WORLD_SCALE,
+      y: (py - CENTER) / DEFAULT_WORLD_SCALE
+    };
+  }
+
+  function currentEditorName() {
+    return $("editorNameInput")?.value?.trim() || "未命名";
+  }
+
+  function addMapElement(el) {
+    state.mapElements.unshift(el);
+    persistMapElements();
+  }
+
+  function handleEditorCanvasClick(evt) {
+    const world = editorCanvasToWorld(evt);
+    const name = currentEditorName();
+    const now = new Date().toISOString();
+
+    if (state.editorMode === "idle") {
+      const hitId = hitTestMapElement(world.x, world.y);
+      if (hitId) {
+        selectMapElement(hitId);
+      } else {
+        state.selectedMapElementId = "";
+        render();
+      }
+      return;
+    }
+
+    if (state.editorMode === "point") {
+      addMapElement({
+        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+        type: "point",
+        name,
+        x: Number(world.x.toFixed(2)),
+        y: Number(world.y.toFixed(2)),
+        semantic: currentEditorSemantic(),
+        createdAt: now
+      });
+      if (state.anchorCreationMode) {
+        const heading = Math.round(normalizeAngle(state.orientation.heading || latestPose().heading || 0));
+        const anchor = {
+          id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + 1),
+          name,
+          x: Number(world.x.toFixed(2)),
+          y: Number(world.y.toFixed(2)),
+          heading,
+          source: "map-point",
+          payload: `INDOOR_ANCHOR:${Number(world.x.toFixed(2))},${Number(world.y.toFixed(2))},${heading}`,
+          createdAt: now
+        };
+        state.savedAnchors.unshift(anchor);
+        persistSavedAnchors();
+        state.anchorCreationMode = false;
+        setEditorMessage(`已在地圖上新增標定點：${name}`);
+      } else {
+        setEditorMessage(`已新增點位：${name} (${world.x.toFixed(1)}, ${world.y.toFixed(1)})`);
+      }
+      render();
+      return;
+    }
+
+    if (state.editorMode === "line") {
+      const snapped = snapPointToNearbyEndpoint(world);
+      state.editorDraftPoints.push({ x: snapped.x, y: snapped.y });
+      if (state.editorDraftPoints.length < 2) {
+        setEditorMessage("線段模式：已記錄第 1 個點，請再點第 2 個點。");
+        drawEditorCanvas();
+        return;
+      }
+      const [a, b] = state.editorDraftPoints;
+      addMapElement({
+        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+        type: "line",
+        name,
+        points: [
+          { x: Number(a.x.toFixed(2)), y: Number(a.y.toFixed(2)) },
+          { x: Number(b.x.toFixed(2)), y: Number(b.y.toFixed(2)) }
+        ],
+        semantic: currentEditorSemantic(),
+        createdAt: now
+      });
+      state.editorDraftPoints = [];
+      normalizeLineNetwork();
+      setEditorMessage(`已新增線段：${name}`);
+      render();
+      return;
+    }
+
+    if (state.editorMode === "area") {
+      state.editorDraftPoints.push(world);
+      if (state.editorDraftPoints.length < 4) {
+        setEditorMessage(`區域模式：已記錄 ${state.editorDraftPoints.length} / 4 個點。`);
+        drawEditorCanvas();
+        return;
+      }
+      addMapElement({
+        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+        type: "area",
+        name,
+        points: state.editorDraftPoints.map(p => ({
+          x: Number(p.x.toFixed(2)),
+          y: Number(p.y.toFixed(2))
+        })),
+        semantic: currentEditorSemantic(),
+        createdAt: now
+      });
+      state.editorDraftPoints = [];
+      setEditorMessage(`已新增區域：${name}`);
+      render();
+    }
+  }
+
+  function drawEditorCanvas() {
+    const canvas = $("editorCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, TRACK_SIZE, TRACK_SIZE);
+
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(CENTER, 0);
+    ctx.lineTo(CENTER, TRACK_SIZE);
+    ctx.moveTo(0, CENTER);
+    ctx.lineTo(TRACK_SIZE, CENTER);
+    ctx.stroke();
+
+    ctx.font = "12px system-ui, sans-serif";
+
+    drawMapElementsOnCanvas(ctx, true);
+
+    // saved anchors overlay
+    if (state.savedAnchors.length) {
+      state.savedAnchors.forEach((a) => {
+        const x = CENTER + Number(a.x || 0) * DEFAULT_WORLD_SCALE;
+        const y = CENTER + Number(a.y || 0) * DEFAULT_WORLD_SCALE;
+        ctx.fillStyle = "#2563eb";
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#1e3a8a";
+        ctx.fillText(a.name || "anchor", x + 8, y - 8);
+      });
+    }
+
+    state.mapElements.slice().reverse().forEach((el) => {
+      const isSelected = el.id === state.selectedMapElementId;
+      if (el.type === "point") {
+        const x = CENTER + Number(el.x || 0) * DEFAULT_WORLD_SCALE;
+        const y = CENTER + Number(el.y || 0) * DEFAULT_WORLD_SCALE;
+        ctx.fillStyle = "#059669";
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#065f46";
+        ctx.fillText(el.name || "point", x + 8, y - 8);
+      } else if (el.type === "line" && Array.isArray(el.points) && el.points.length >= 2) {
+        ctx.strokeStyle = isSelected ? "#ef4444" : (semantic === "wall" ? "#111827" : semantic === "restricted" ? "#f59e0b" : "#7c3aed");
+        ctx.lineWidth = semantic === "wall" ? 5 : (isSelected ? 4 : 3);
+        ctx.beginPath();
+        el.points.forEach((p, i) => {
+          const x = CENTER + Number(p.x || 0) * DEFAULT_WORLD_SCALE;
+          const y = CENTER + Number(p.y || 0) * DEFAULT_WORLD_SCALE;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        const mid = el.points[0];
+        ctx.fillStyle = "#5b21b6";
+        ctx.fillText(el.name || "line", CENTER + Number(mid.x || 0) * DEFAULT_WORLD_SCALE + 8, CENTER + Number(mid.y || 0) * DEFAULT_WORLD_SCALE - 8);
+      } else if (el.type === "area" && Array.isArray(el.points) && el.points.length >= 3) {
+        ctx.fillStyle = "rgba(234,179,8,0.18)";
+        ctx.strokeStyle = "#ca8a04";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        el.points.forEach((p, i) => {
+          const x = CENTER + Number(p.x || 0) * DEFAULT_WORLD_SCALE;
+          const y = CENTER + Number(p.y || 0) * DEFAULT_WORLD_SCALE;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        const p0 = el.points[0];
+        ctx.fillStyle = "#92400e";
+        ctx.fillText(el.name || "area", CENTER + Number(p0.x || 0) * DEFAULT_WORLD_SCALE + 8, CENTER + Number(p0.y || 0) * DEFAULT_WORLD_SCALE - 8);
+      }
+    });
+
+    if (state.editorDraftPoints.length) {
+      ctx.strokeStyle = "#ef4444";
+      ctx.fillStyle = "#ef4444";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      state.editorDraftPoints.forEach((p, i) => {
+        const x = CENTER + Number(p.x || 0) * DEFAULT_WORLD_SCALE;
+        const y = CENTER + Number(p.y || 0) * DEFAULT_WORLD_SCALE;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
+
+  function renderMapElements() {
+    const el = $("mapElementList");
+    if (!el) return;
+    if (!state.mapElements.length) {
+      el.innerHTML = '<div class="item">尚未建立任何地圖元素。</div>';
+      return;
+    }
+    el.innerHTML = state.mapElements.map((m) => `
+      <div class="item">
+        <div class="item-top">
+          <strong>${m.name || "未命名"}</strong>
+          <span style="display:flex; gap:6px; align-items:center;"><span class="badge">${m.type}</span><span class="badge">${m.semantic || "walkable"}</span>${m.source === "anchor" ? '<span class="badge">anchor</span>' : ""}</span>
+        </div>
+        ${
+          m.type === "point"
+            ? `<div>x: ${m.x} / y: ${m.y}</div>`
+            : `<div>points: ${(m.points || []).map(p => `(${p.x}, ${p.y})`).join(" -> ")}</div>`
+        }
+        <div class="btns" style="margin-top:10px; margin-bottom:0;">
+          <button data-map-select="${m.id}">選取</button>
+          <button data-map-load="${m.id}">載入名稱</button>
+          <button data-map-anchor="${m.id}" class="secondary">轉 Anchor</button>
+          <button data-map-del="${m.id}" class="danger">刪除</button>
+        </div>
+      </div>
+    `).join("");
+
+    el.querySelectorAll("[data-map-select]").forEach(btn => {
+      btn.addEventListener("click", () => selectMapElement(btn.getAttribute("data-map-select")));
+    });
+
+    el.querySelectorAll("[data-map-load]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const m = state.mapElements.find(x => x.id === btn.getAttribute("data-map-load"));
+        if (!m) return;
+        $("editorNameInput").value = m.name || "";
+        render();
+      });
+    });
+
+    el.querySelectorAll("[data-map-del]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-map-del");
+        state.mapElements = state.mapElements.filter(x => x.id !== id);
+        persistMapElements();
+      });
+    });
+    el.querySelectorAll("[data-map-anchor]").forEach(btn => {
+      btn.addEventListener("click", () => convertMapElementToAnchorById(btn.getAttribute("data-map-anchor")));
+    });
+  }
+
+  function undoMapElement() {
+    if (state.editorDraftPoints.length) {
+      state.editorDraftPoints.pop();
+      drawEditorCanvas();
+      return;
+    }
+    state.mapElements.shift();
+    persistMapElements();
+  }
+
+  function exportMapData() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      mapElements: state.mapElements
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `indoor-map-data-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setEditorMessage("已匯出地圖 JSON。");
+  }
+
+  async function importMapData(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const elements = Array.isArray(data) ? data : data.mapElements;
+      if (!Array.isArray(elements)) throw new Error("JSON 裡找不到 mapElements 陣列");
+      state.mapElements = elements;
+      persistMapElements();
+      setEditorMessage(`已匯入 ${elements.length} 個地圖元素。`);
+    } catch (e) {
+      alert("匯入失敗：" + e.message);
+    }
+  }
+
+
+
+  function selectedMapElement() {
+    return state.mapElements.find(x => x.id === state.selectedMapElementId) || null;
+  }
+
+  function selectMapElement(id) {
+    state.selectedMapElementId = id || "";
+    const el = selectedMapElement();
+    if ($("selectedMapElementType")) $("selectedMapElementType").textContent = el ? el.type : "none";
+    if ($("selectedMapElementName")) $("selectedMapElementName").value = el ? (el.name || "") : "";
+    if ($("selectedMapElementSemantic")) $("selectedMapElementSemantic").value = el ? (el.semantic || "walkable") : "walkable";
+    if (el) {
+      setEditorMessage(`已選取元素：${el.name || "未命名"} (${el.type})`);
+    }
+    render();
+  }
+
+  function updateSelectedMapElementName() {
+    const el = selectedMapElement();
+    if (!el) {
+      alert("請先選一個地圖元素");
+      return;
+    }
+    const name = $("selectedMapElementName").value.trim() || "未命名";
+    const semantic = $("selectedMapElementSemantic").value || "walkable";
+    el.name = name;
+    el.semantic = semantic;
+    persistMapElements();
+    setEditorMessage(`已更新元素名稱：${name}`);
+    render();
+  }
+
+  function deleteSelectedMapElement() {
+    const el = selectedMapElement();
+    if (!el) {
+      alert("請先選一個地圖元素");
+      return;
+    }
+    if (!confirm(`確定要刪除「${el.name || "未命名"}」嗎？`)) return;
+    state.mapElements = state.mapElements.filter(x => x.id !== el.id);
+    state.selectedMapElementId = "";
+    persistMapElements();
+    setEditorMessage("已刪除所選地圖元素。");
+    render();
+  }
+
+  function hitTestMapElement(worldX, worldY) {
+    const threshold = 1.2;
+    for (const el of state.mapElements) {
+      const isSelected = el.id === state.selectedMapElementId;
+      if (el.type === "point") {
+        const dx = Number(el.x || 0) - worldX;
+        const dy = Number(el.y || 0) - worldY;
+        if (Math.sqrt(dx * dx + dy * dy) <= threshold) return el.id;
+      } else if (el.type === "line" && Array.isArray(el.points) && el.points.length >= 2) {
+        const [a, b] = el.points;
+        const ax = Number(a.x || 0), ay = Number(a.y || 0), bx = Number(b.x || 0), by = Number(b.y || 0);
+        const abx = bx - ax, aby = by - ay;
+        const apx = worldX - ax, apy = worldY - ay;
+        const ab2 = abx * abx + aby * aby || 1;
+        const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / ab2));
+        const cx = ax + t * abx, cy = ay + t * aby;
+        const dx = cx - worldX, dy = cy - worldY;
+        if (Math.sqrt(dx * dx + dy * dy) <= threshold) return el.id;
+      } else if (el.type === "area" && Array.isArray(el.points) && el.points.length >= 3) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        el.points.forEach((p) => {
+          minX = Math.min(minX, Number(p.x || 0));
+          minY = Math.min(minY, Number(p.y || 0));
+          maxX = Math.max(maxX, Number(p.x || 0));
+          maxY = Math.max(maxY, Number(p.y || 0));
+        });
+        if (worldX >= minX && worldX <= maxX && worldY >= minY && worldY <= maxY) return el.id;
+      }
+    }
+    return "";
+  }
+
+
+
+  function pointElementToAnchor(pointEl) {
+    if (!pointEl || pointEl.type !== "point") return null;
+    return {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+      name: pointEl.name || "未命名校正點",
+      x: Number(pointEl.x ?? 0),
+      y: Number(pointEl.y ?? 0),
+      heading: null,
+      payload: `INDOOR_ANCHOR:${Number(pointEl.x ?? 0)},${Number(pointEl.y ?? 0)}`,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  function saveAnchorObject(anchor) {
+    if (!anchor) return false;
+    const exists = state.savedAnchors.findIndex(a => a.name === anchor.name);
+    if (exists >= 0) {
+      state.savedAnchors[exists] = anchor;
+    } else {
+      state.savedAnchors.unshift(anchor);
+    }
+    persistSavedAnchors();
+    return true;
+  }
+
+  function convertSelectedMapElementToAnchor() {
+    const el = selectedMapElement();
+    if (!el) {
+      alert("請先選一個地圖元素");
+      return;
+    }
+    if (el.type !== "point") {
+      alert("目前只有點位元素可以直接轉成 Anchor。");
+      return;
+    }
+    const anchor = pointElementToAnchor(el);
+    if (saveAnchorObject(anchor)) {
+      setEditorMessage(`已將點位「${el.name || "未命名"}」轉成 Anchor。`);
+      setMessage(`已新增 Anchor：${anchor.name}`);
+      render();
+    }
+  }
+
+  function convertMapElementToAnchorById(id) {
+    const el = state.mapElements.find(x => x.id === id);
+    if (!el) return;
+    if (el.type !== "point") {
+      alert("目前只有點位元素可以直接轉成 Anchor。");
+      return;
+    }
+    const anchor = pointElementToAnchor(el);
+    if (saveAnchorObject(anchor)) {
+      setEditorMessage(`已將點位「${el.name || "未命名"}」轉成 Anchor。`);
+      setMessage(`已新增 Anchor：${anchor.name}`);
+      render();
+    }
+  }
+
+
+
+  function anchorToPointMapElement(anchor) {
+    if (!anchor) return null;
+    return {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+      type: "point",
+      name: anchor.name || "未命名校正點",
+      x: Number(anchor.x ?? 0),
+      y: Number(anchor.y ?? 0),
+      source: "anchor",
+      anchorId: anchor.id || "",
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  function syncAnchorToMapById(anchorId) {
+    const anchor = state.savedAnchors.find(a => a.id === anchorId);
+    if (!anchor) return;
+
+    const existing = state.mapElements.find(
+      (m) => m.type === "point" && (m.anchorId === anchor.id || (m.source === "anchor" && m.name === anchor.name))
+    );
+
+    if (existing) {
+      existing.name = anchor.name || existing.name;
+      existing.x = Number(anchor.x ?? existing.x ?? 0);
+      existing.y = Number(anchor.y ?? existing.y ?? 0);
+      existing.source = "anchor";
+      existing.anchorId = anchor.id || existing.anchorId || "";
+    } else {
+      const point = anchorToPointMapElement(anchor);
+      if (point) state.mapElements.unshift(point);
+    }
+
+    persistMapElements();
+    setMessage(`已將 Anchor「${anchor.name || "未命名"}」同步到地圖。`);
+    render();
+  }
+
+  function syncAllAnchorsToMap() {
+    if (!state.savedAnchors.length) {
+      alert("目前沒有可同步的 Anchor。");
+      return;
+    }
+    state.savedAnchors.forEach((a) => {
+      const existing = state.mapElements.find(
+        (m) => m.type === "point" && (m.anchorId === a.id || (m.source === "anchor" && m.name === a.name))
+      );
+      if (existing) {
+        existing.name = a.name || existing.name;
+        existing.x = Number(a.x ?? existing.x ?? 0);
+        existing.y = Number(a.y ?? existing.y ?? 0);
+        existing.source = "anchor";
+        existing.anchorId = a.id || existing.anchorId || "";
+      } else {
+        const point = anchorToPointMapElement(a);
+        if (point) state.mapElements.unshift(point);
+      }
+    });
+    persistMapElements();
+    setMessage(`已同步 ${state.savedAnchors.length} 個 Anchor 到地圖。`);
+    render();
+  }
+
+
+
+  function networkLineElements() {
+    return state.mapElements.filter((m) => m.type === "line" && Array.isArray(m.points) && m.points.length >= 2 && (m.semantic || "walkable") !== "wall" && (m.semantic || "walkable") !== "restricted");
+  }
+
+  function pointKey(p) {
+    return `${Number(p.x).toFixed(2)},${Number(p.y).toFixed(2)}`;
+  }
+
+  function nearestGraphNode(target, nodes) {
+    if (!nodes.length) return null;
+    let best = null;
+    let bestDist = Infinity;
+    for (const n of nodes) {
+      const d = distanceBetween(target, n);
+      if (d < bestDist) {
+        bestDist = d
+        best = n
+      }
+    }
+    return best;
+  }
+
+  function buildLineGraph() {
+    const nodesMap = new Map();
+    const edges = new Map();
+
+    const ensureNode = (p) => {
+      let existing = null;
+      for (const node of nodesMap.values()) {
+        if (distanceBetween(node, p) <= state.snapThreshold) {
+          existing = node;
+          break;
+        }
+      }
+      if (existing) {
+        if (!edges.has(existing.key)) edges.set(existing.key, []);
+        return existing;
+      }
+
+      const key = pointKey(p);
+      if (!nodesMap.has(key)) {
+        nodesMap.set(key, { x: Number(p.x), y: Number(p.y), key });
+      }
+      if (!edges.has(key)) edges.set(key, []);
+      return nodesMap.get(key);
+    };
+
+    networkLineElements().forEach((line) => {
+      for (let i = 1; i < line.points.length; i++) {
+        const a = ensureNode(line.points[i - 1]);
+        const b = ensureNode(line.points[i]);
+        const w = distanceBetween(a, b);
+        if (!segmentBlockedByWalls(a, b) && !pointInsideRestrictedArea(a) && !pointInsideRestrictedArea(b)) {
+          edges.get(a.key).push({ to: b.key, weight: w });
+          edges.get(b.key).push({ to: a.key, weight: w });
+        }
+      }
+    });
+
+    return { nodes: Array.from(nodesMap.values()), edges, nodesMap };
+  }
+
+  function shortestPathOnGraph(start, goal, graph) {
+    if (!start || !goal) return [];
+    const dist = new Map();
+    const prev = new Map();
+    const unvisited = new Set(graph.nodes.map((n) => n.key));
+
+    graph.nodes.forEach((n) => dist.set(n.key, Infinity));
+    dist.set(start.key, 0);
+
+    while (unvisited.size) {
+      let currentKey = null;
+      let currentDist = Infinity;
+      for (const key of unvisited) {
+        const d = dist.get(key);
+        if (d < currentDist) {
+          currentDist = d;
+          currentKey = key;
+        }
+      }
+      if (!currentKey || currentDist === Infinity) break;
+      if (currentKey === goal.key) break;
+
+      unvisited.delete(currentKey);
+      for (const edge of graph.edges.get(currentKey) || []) {
+        if (!unvisited.has(edge.to)) continue;
+        const alt = currentDist + edge.weight;
+        if (alt < (dist.get(edge.to) || Infinity)) {
+          dist.set(edge.to, alt);
+          prev.set(edge.to, currentKey);
+        }
+      }
+    }
+
+    const path = [];
+    let cursor = goal.key;
+    while (cursor) {
+      const node = graph.nodesMap.get(cursor);
+      if (node) path.unshift({ x: node.x, y: node.y, key: node.key });
+      cursor = prev.get(cursor);
+      if (cursor === start.key) {
+        const s = graph.nodesMap.get(start.key);
+        if (s) path.unshift({ x: s.x, y: s.y, key: s.key });
+        break;
+      }
+    }
+
+    if (!path.length) return [];
+    if (path[0].key !== start.key) {
+      const s = graph.nodesMap.get(start.key);
+      if (s) path.unshift({ x: s.x, y: s.y, key: s.key });
+    }
+    return path;
+  }
+
+  function routeDistanceFromPoints(points) {
+    if (!points || points.length < 2) return 0;
+    let total = 0;
+    for (let i = 1; i < points.length; i++) {
+      total += distanceBetween(points[i - 1], points[i]);
+    }
+    return total;
+  }
+
+  function computeNetworkRoute() {
+    const target = state.savedAnchors.find(a => a.id === state.navTargetId);
+    const current = latestPose();
+    if (!target) {
+      state.plannedRoutePoints = [];
+      return [];
+    }
+
+    const graph = buildLineGraph();
+    if (!graph.nodes.length) {
+      state.plannedRoutePoints = [
+        { x: Number(current.x || 0), y: Number(current.y || 0), name: "目前位置" },
+        { x: Number(target.x || 0), y: Number(target.y || 0), name: target.name || "目標" }
+      ];
+      return state.plannedRoutePoints;
+    }
+
+    const startNode = nearestGraphNode({ x: Number(current.x || 0), y: Number(current.y || 0) }, graph.nodes);
+    const goalNode = nearestGraphNode({ x: Number(target.x || 0), y: Number(target.y || 0) }, graph.nodes);
+    const path = shortestPathOnGraph(startNode, goalNode, graph);
+
+    const route = [];
+    route.push({ x: Number(current.x || 0), y: Number(current.y || 0), name: "目前位置" });
+
+    if (startNode && distanceBetween(current, startNode) > 0.1) {
+      route.push({ x: startNode.x, y: startNode.y, name: "起始線段點" });
+    }
+
+    path.forEach((p, idx) => {
+      if (idx === 0 && startNode && p.key === startNode.key) return;
+      if (goalNode && idx === path.length - 1 && p.key === goalNode.key) {
+        route.push({ x: p.x, y: p.y, name: "目標線段點" });
+      } else {
+        route.push({ x: p.x, y: p.y, name: `路網點 ${idx + 1}` });
+      }
+    });
+
+    if (!goalNode || distanceBetween(target, goalNode) > 0.1) {
+      route.push({ x: Number(target.x || 0), y: Number(target.y || 0), name: target.name || "目標" });
+    } else {
+      route.push({ x: Number(target.x || 0), y: Number(target.y || 0), name: target.name || "目標" });
+    }
+
+    // dedupe adjacent identical
+    const deduped = [];
+    for (const p of route) {
+      const prev = deduped[deduped.length - 1];
+      if (!prev || distanceBetween(prev, p) > 0.05) deduped.push(p);
+    }
+
+    state.plannedRoutePoints = deduped;
+    return deduped;
+  }
+
+
+
+  function getAllLineEndpoints() {
+    const pts = [];
+    state.mapElements.forEach((el) => {
+      if (el.type === "line" && Array.isArray(el.points)) {
+        el.points.forEach((p) => pts.push({ x: Number(p.x || 0), y: Number(p.y || 0) }));
+      }
+    });
+    return pts;
+  }
+
+  function snapPointToNearbyEndpoint(p) {
+    if (!state.snapEnabled) return { x: p.x, y: p.y, snapped: false };
+    let best = null;
+    let bestDist = Infinity;
+    getAllLineEndpoints().forEach((ep) => {
+      const dx = ep.x - p.x;
+      const dy = ep.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestDist) {
+        bestDist = d;
+        best = ep;
+      }
+    });
+    if (best && bestDist <= state.snapThreshold) {
+      return { x: best.x, y: best.y, snapped: true };
+    }
+    return { x: p.x, y: p.y, snapped: false };
+  }
+
+  function segmentIntersection(a, b, c, d) {
+    const denom = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
+    if (Math.abs(denom) < 1e-9) return null;
+    const px = ((a.x * b.y - a.y * b.x) * (c.x - d.x) - (a.x - b.x) * (c.x * d.y - c.y * d.x)) / denom;
+    const py = ((a.x * b.y - a.y * b.x) * (c.y - d.y) - (a.y - b.y) * (c.x * d.y - c.y * d.x)) / denom;
+
+    function within(p1, p2, q) {
+      return q >= Math.min(p1, p2) - 1e-6 && q <= Math.max(p1, p2) + 1e-6;
+    }
+
+    if (
+      within(a.x, b.x, px) && within(a.y, b.y, py) &&
+      within(c.x, d.x, px) && within(c.y, d.y, py)
+    ) {
+      return { x: Number(px.toFixed(2)), y: Number(py.toFixed(2)) };
+    }
+    return null;
+  }
+
+  function splitLineByIntersections(line, intersections) {
+    if (!intersections.length) return [line];
+    const pts = [
+      { x: Number(line.points[0].x), y: Number(line.points[0].y) },
+      ...intersections,
+      { x: Number(line.points[1].x), y: Number(line.points[1].y) }
+    ];
+
+    const a = pts[0];
+    pts.sort((p1, p2) => {
+      const d1 = (p1.x - a.x) ** 2 + (p1.y - a.y) ** 2;
+      const d2 = (p2.x - a.x) ** 2 + (p2.y - a.y) ** 2;
+      return d1 - d2;
+    });
+
+    const dedup = [];
+    pts.forEach((p) => {
+      const prev = dedup[dedup.length - 1];
+      if (!prev || Math.hypot(prev.x - p.x, prev.y - p.y) > 0.05) dedup.push(p);
+    });
+
+    const pieces = [];
+    for (let i = 1; i < dedup.length; i++) {
+      pieces.push({
+        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + i),
+        type: "line",
+        name: line.name,
+        points: [
+          { x: Number(dedup[i - 1].x.toFixed(2)), y: Number(dedup[i - 1].y.toFixed(2)) },
+          { x: Number(dedup[i].x.toFixed(2)), y: Number(dedup[i].y.toFixed(2)) }
+        ],
+        createdAt: line.createdAt,
+        source: line.source,
+        anchorId: line.anchorId
+      });
+    }
+    return pieces;
+  }
+
+  function normalizeLineNetwork() {
+    if (!state.autoIntersectEnabled) return;
+    const lines = state.mapElements.filter((m) => m.type === "line" && Array.isArray(m.points) && m.points.length >= 2);
+    if (lines.length < 2) return;
+
+    const lineIntersections = new Map();
+    lines.forEach((l) => lineIntersections.set(l.id, []));
+
+    for (let i = 0; i < lines.length; i++) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const a1 = { x: Number(lines[i].points[0].x), y: Number(lines[i].points[0].y) };
+        const a2 = { x: Number(lines[i].points[1].x), y: Number(lines[i].points[1].y) };
+        const b1 = { x: Number(lines[j].points[0].x), y: Number(lines[j].points[0].y) };
+        const b2 = { x: Number(lines[j].points[1].x), y: Number(lines[j].points[1].y) };
+        const hit = segmentIntersection(a1, a2, b1, b2);
+        if (hit) {
+          const isEndpointHit =
+            (Math.hypot(hit.x - a1.x, hit.y - a1.y) < 0.05) ||
+            (Math.hypot(hit.x - a2.x, hit.y - a2.y) < 0.05) ||
+            (Math.hypot(hit.x - b1.x, hit.y - b1.y) < 0.05) ||
+            (Math.hypot(hit.x - b2.x, hit.y - b2.y) < 0.05);
+          if (!isEndpointHit) {
+            lineIntersections.get(lines[i].id).push(hit);
+            lineIntersections.get(lines[j].id).push(hit);
+          }
+        }
+      }
+    }
+
+    let changed = false
+    const nextElements = [];
+    state.mapElements.forEach((el) => {
+      if (el.type !== "line" || !lineIntersections.has(el.id)) {
+        nextElements.push(el);
+        return;
+      }
+      const hits = lineIntersections.get(el.id);
+      if (!hits.length) {
+        nextElements.push(el);
+        return;
+      }
+      changed = true
+      splitLineByIntersections(el, hits).forEach((piece) => nextElements.push(piece));
+    });
+
+    if (changed) {
+      state.mapElements = nextElements;
+      persistMapElements();
+      setEditorMessage("已完成路網修正：交點已節點化。");
+    }
+  }
+
+
+
+  function currentEditorSemantic() {
+    return $("editorElementSemantic")?.value || "walkable";
+  }
+
+  function ccw(A, B, C) {
+    return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+  }
+
+  function segmentsCross(a, b, c, d) {
+    // Exclude shared endpoints / near-touch as blocking crossings
+    const shared =
+      distanceBetween(a, c) < 0.05 || distanceBetween(a, d) < 0.05 ||
+      distanceBetween(b, c) < 0.05 || distanceBetween(b, d) < 0.05;
+    if (shared) return false;
+    return ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d);
+  }
+
+  function segmentBlockedByWalls(a, b) {
+    const walls = state.mapElements.filter(m => m.semantic === "wall" && m.type === "line" && Array.isArray(m.points) && m.points.length >= 2);
+    return walls.some((w) => {
+      const p1 = { x: Number(w.points[0].x || 0), y: Number(w.points[0].y || 0) };
+      const p2 = { x: Number(w.points[1].x || 0), y: Number(w.points[1].y || 0) };
+      return segmentsCross(a, b, p1, p2);
+    });
+  }
+
+  function pointInsideRestrictedArea(p) {
+    const areas = state.mapElements.filter(m => m.semantic === "restricted" && m.type === "area" && Array.isArray(m.points) && m.points.length >= 3);
+    return areas.some((area) => {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      area.points.forEach(pt => {
+        minX = Math.min(minX, Number(pt.x || 0));
+        minY = Math.min(minY, Number(pt.y || 0));
+        maxX = Math.max(maxX, Number(pt.x || 0));
+        maxY = Math.max(maxY, Number(pt.y || 0));
+      });
+      return p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
+    });
+  }
+
+
+  function render() {
+    $("messageBox").textContent = state.message;
+    $("guidanceBanner").textContent = state.currentGuidanceText;
+    $("toggleVoiceGuide").checked = state.voiceGuideEnabled;
+    $("btnNavSessionStart").disabled = !state.navTargetId || state.navSessionState === "active";
+    $("btnNavSessionPause").disabled = state.navSessionState !== "active";
+    $("btnNavSessionResume").disabled = state.navSessionState !== "paused";
+    $("btnNavSessionEnd").disabled = state.navSessionState === "idle";
+    const editorModeBadge = $("editorModeBadge");
+    if (editorModeBadge) editorModeBadge.textContent = state.editorMode;
+    const editorDraftInfo = $("editorDraftInfo");
+    if (editorDraftInfo) editorDraftInfo.textContent = $("editorNameInput") ? ($("editorNameInput").value.trim() || "未命名") : "未命名";
+    if ($("toggleSnapMode")) $("toggleSnapMode").checked = state.snapEnabled;
+    if ($("editorElementSemantic")) $("editorElementSemantic").value = $("editorElementSemantic").value || "walkable";
+    if ($("toggleAutoIntersect")) $("toggleAutoIntersect").checked = state.autoIntersectEnabled;
+    const editorMessageBox = $("editorMessageBox");
+    if (editorMessageBox) editorMessageBox.textContent = state.editorMessage;
+    const selectedEl = selectedMapElement();
+    if ($("selectedMapElementType")) $("selectedMapElementType").textContent = selectedEl ? selectedEl.type : "none";
+    $("permissionBadge").textContent = state.permissionState;
+    $("gpsBadge").textContent = gpsBadgeText();
+    $("trackBadge").textContent = state.tracking ? "tracking" : "idle";
+
+    const pose = latestPose();
+    $("poseValue").textContent = `x ${fmt(pose.x)} m / y ${fmt(pose.y)} m`;
+    $("headingValue").textContent = `${fmt(pose.heading, 1)}°`;
+    $("gpsAccValue").textContent = state.geoReading ? `${fmt(state.geoReading.accuracy, 1)} m` : "-";
+    $("stepCountValue").textContent = String(state.stepCount);
+    $("accValue").textContent = `${fmt(state.motion.ax)}, ${fmt(state.motion.ay)}, ${fmt(state.motion.az)}`;
+    $("motionValue").textContent = `raw ${fmt(state.motionMagnitude)} / smooth ${fmt(state.smoothedMagnitude)}`;
+    $("lastStepValue").textContent = state.lastStepAt ? new Date(state.lastStepAt).toLocaleTimeString() : "-";
+    $("geoValue").textContent = state.geoReading ? `${fmt(state.geoReading.lat, 6)}, ${fmt(state.geoReading.lng, 6)}` : "-";
+    $("stepLengthValue").textContent = `${fmt(state.stepLength, 2)} m`;
+    $("toggleAnchorOverlay").checked = state.showAnchorOverlay;
+    $("toggleMapOverlay").checked = state.showMapOverlay;
+    $("arrivalThresholdInput").value = String(state.arrivalThreshold);
+    renderRouteControls();
+    updateTargetSummary();
+
+
+    $("btnStop").disabled = !state.tracking;
+    $("btnStart").disabled = state.tracking;
+    $("btnPosCorrection").disabled = state.positionSampleMode || !state.geoReading;
+    $("btnHeadingCorrection").disabled = state.headingSampleMode;
+
+    $("btnPosCorrection").textContent = state.positionSampleMode ? "位置收樣中..." : "按鈕 1：位置校正";
+    $("btnHeadingCorrection").textContent = state.headingSampleMode ? "方向收樣中..." : "按鈕 2：方向校正";
+
+    updateGuidanceBanner(false);
+    renderArrowGuidance();
+    renderRouteProgress();
+    renderCorrections();
+    updateAnchorCorrectionSelect();
+    updateAutoStepStatus();
+    drawTrack();
+    drawEditorCanvas();
+    renderMapElements();
+    refreshViewportUI();
+  }
+
+  async function requestPermissions() {
+    try {
+      if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+        await DeviceMotionEvent.requestPermission();
+      }
+      if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+        await DeviceOrientationEvent.requestPermission();
+      }
+      if (!navigator.geolocation) throw new Error("此瀏覽器不支援 Geolocation。");
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const next = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            heading: pos.coords.heading,
+            speed: pos.coords.speed,
+            ts: Date.now()
+          };
+          state.geoReading = next;
+          if (!state.anchor) state.anchor = { lat: next.lat, lng: next.lng };
+          updateAutoStepCalibration(next);
+          state.permissionState = "granted";
+          setMessage("授權完成，可以開始追蹤。建議先在入口或窗邊設定起點。");
+        },
+        (err) => {
+          state.permissionState = "denied";
+          setMessage(`定位授權失敗：${err.message}`);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } catch (err) {
+      state.permissionState = "denied";
+      setMessage(`感測器授權失敗：${err.message}`);
+    }
+  }
+
+  function handleOrientation(event) {
+    const webkitHeading = event.webkitCompassHeading;
+    const alphaHeading = typeof event.alpha === "number" ? 360 - event.alpha : 0;
+    const heading = normalizeAngle(typeof webkitHeading === "number" ? webkitHeading : alphaHeading);
+    state.orientation = { heading, supported: true };
+    state.currentPose.heading = heading;
+    render();
+  }
+
+  function maybeFinishStepCalibration() {
+    if (!state.calibratingStepLength) return;
+    const walked = state.stepCount - state.stepCalStart;
+    if (walked >= 10) {
+      const meters = Number(prompt("請輸入你剛剛 10 步實際走了幾公尺（例如 7.2）", "7.2"));
+      if (Number.isFinite(meters) && meters > 0) {
+        state.stepLength = meters / 10;
+        $("stepLength").value = String(Math.min(1.0, Math.max(0.4, state.stepLength)));
+        setMessage(`步長校正完成：新步長 ${fmt(state.stepLength, 2)} m/步。`);
+      } else {
+        setMessage("步長校正取消：輸入不是有效距離。");
+      }
+      state.calibratingStepLength = false;
+      render();
+    }
+  }
+
+  function handleMotion(event) {
+    const acc = event.accelerationIncludingGravity || event.acceleration;
+    const ax = acc?.x ?? 0;
+    const ay = acc?.y ?? 0;
+    const az = acc?.z ?? 0;
+    const magnitude = Math.sqrt(ax * ax + ay * ay + az * az);
+    const nextSmoothed = smoothedMagnitudeRef * (1 - STEP_SMOOTHING) + magnitude * STEP_SMOOTHING;
+    const delta = magnitude - nextSmoothed;
+
+    smoothedMagnitudeRef = nextSmoothed;
+    state.motion = { ax, ay, az, supported: true };
+    state.motionMagnitude = magnitude;
+    state.smoothedMagnitude = nextSmoothed;
+
+    if (!state.tracking) {
+      render();
+      return;
+    }
+
+    const now = Date.now();
+    if (delta > STEP_THRESHOLD && now - lastStepAtRef > STEP_DEBOUNCE_MS) {
+      lastStepAtRef = now;
+      state.lastStepAt = now;
+      state.stepCount += 1;
+      const last = latestPose();
+      const heading = state.orientation.heading;
+      const rad = (heading * Math.PI) / 180;
+      const next = {
+        x: last.x + Math.sin(rad) * state.stepLength,
+        y: last.y - Math.cos(rad) * state.stepLength,
+        heading,
+        t: now
+      };
+      state.currentPose = next;
+      state.trail.push(next);
+      maybeFinishStepCalibration();
+      updateArrivalProgress();
+    }
+    render();
+  }
+
+  function startTracking() {
+    if (state.permissionState !== "granted") {
+      setMessage("請先授權。iPhone 通常需要按鈕觸發權限。");
+      return;
+    }
+    state.tracking = true;
+    if (geoWatchId != null) navigator.geolocation.clearWatch(geoWatchId);
+    geoWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        state.geoReading = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed,
+          ts: Date.now()
+        };
+        updateAutoStepCalibration(state.geoReading);
+        if (state.tracking && Number.isFinite(state.geoReading.accuracy) && state.geoReading.accuracy <= 10 && Date.now() - state.lastGeoCorrectionAt > 12000) {
+          applySoftGpsCorrection(state.geoReading, "gps-live");
+        }
+        render();
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+    );
+    setMessage("開始追蹤。現在會嘗試用加速度峰值偵測步伐來推進軌跡，並可在 GPS 較佳時做手動校正。");
+    render();
+  }
+
+  function stopTracking() {
+    state.tracking = false;
+    if (geoWatchId != null) navigator.geolocation.clearWatch(geoWatchId);
+    setMessage("已停止追蹤。");
+    render();
+  }
+
+  function resetAll() {
+    stopTracking();
+    state.trail = [{ x: 0, y: 0, heading: 0, t: Date.now() }];
+    state.currentPose = { x: 0, y: 0, heading: 0 };
+    state.corrections = [];
+    state.positionSamples = [];
+    state.headingSamples = [];
+    state.stepCount = 0;
+    state.lastStepAt = 0;
+    lastStepAtRef = 0;
+    smoothedMagnitudeRef = 0;
+    state.motionMagnitude = 0;
+    state.smoothedMagnitude = 0;
+    state.calibratingStepLength = false;
+    if (state.exportUrl) {
+      URL.revokeObjectURL(state.exportUrl);
+      state.exportUrl = "";
+      $("downloadLink").style.display = "none";
+    }
+    setMessage("資料已清空。可重新設定起點後再開始。");
+    render();
+  }
+
+  function setCurrentGpsAsAnchor() {
+    if (!state.geoReading) {
+      setMessage("目前沒有 GPS/Geolocation 讀值，不能設定起點。");
+      return;
+    }
+    state.anchor = { lat: state.geoReading.lat, lng: state.geoReading.lng };
+    setMessage("已把目前 GPS 位置設為地圖參考原點。後續可用 GPS 建標定點與做柔性位置校正。");
+    render();
+  }
+
+  function beginPositionCorrection() {
+    if (!state.geoReading) {
+      setMessage("目前沒有可用定位訊號。請到窗邊或入口再試。");
+      return;
+    }
+    if (Number.isFinite(state.geoReading.accuracy) && state.geoReading.accuracy > MIN_GPS_ACCURACY_METERS) {
+      setMessage(`目前 GPS accuracy 約 ${fmt(state.geoReading.accuracy, 1)} m，超過門檻 ${MIN_GPS_ACCURACY_METERS} m，先不要校正。`);
+      return;
+    }
+    state.positionSampleMode = true;
+    state.positionSamples = [];
+    render();
+    setMessage(`開始位置收樣 ${POSITION_SAMPLE_SECONDS} 秒，請盡量站定。系統會只取較可信樣本再平均。`);
+
+    const startedAt = Date.now();
+    clearInterval(positionTimer);
+    positionTimer = setInterval(() => {
+      if (state.geoReading) {
+        state.positionSamples.push({
+          lat: state.geoReading.lat,
+          lng: state.geoReading.lng,
+          accuracy: state.geoReading.accuracy,
+          ts: Date.now()
+        });
+      }
+      if (Date.now() - startedAt >= POSITION_SAMPLE_SECONDS * 1000) {
+        clearInterval(positionTimer);
+        finalizePositionCorrection();
+      }
+    }, SAMPLE_MS);
+  }
+
+  function finalizePositionCorrection() {
+    state.positionSampleMode = false;
+    if (!state.positionSamples.length) {
+      setMessage("位置校正失敗：缺少 GPS 樣本。");
+      render();
+      return;
+    }
+
+    ensureGeoAnchorReference();
+    if (!state.anchor) {
+      setMessage("位置校正失敗：尚未設定 GPS 參考原點。");
+      render();
+      return;
+    }
+
+    const filtered = state.positionSamples.filter(
+      (s) => Number.isFinite(s.accuracy) && s.accuracy <= MIN_GPS_ACCURACY_METERS
+    );
+    const base = filtered.length >= 3 ? filtered : state.positionSamples;
+    const weights = base.map((s) => 1 / Math.max(s.accuracy || MIN_GPS_ACCURACY_METERS, 1));
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const avgLat = base.reduce((sum, s, i) => sum + s.lat * weights[i], 0) / weightSum;
+    const avgLng = base.reduce((sum, s, i) => sum + s.lng * weights[i], 0) / weightSum;
+    const avgAcc = base.reduce((sum, s) => sum + (s.accuracy || 0), 0) / base.length;
+
+    applySoftGpsCorrection({ lat: avgLat, lng: avgLng, accuracy: avgAcc }, "gps-sampled");
+    setMessage(`GPS 柔性校正完成。採用 ${base.length} 筆樣本加權平均，平均誤差 ${fmt(avgAcc, 1)} m。`);
+    updateArrivalProgress();
+    render();
+  }
+
+  function beginHeadingCorrection() {
+    state.headingSampleMode = true;
+    state.headingSamples = [];
+    render();
+    setMessage(`開始方向收樣 ${HEADING_SAMPLE_SECONDS} 秒，請保持手機朝向固定。`);
+    const startedAt = Date.now();
+    clearInterval(headingTimer);
+    headingTimer = setInterval(() => {
+      state.headingSamples.push({ heading: state.orientation.heading, ts: Date.now() });
+      if (Date.now() - startedAt >= HEADING_SAMPLE_SECONDS * 1000) {
+        clearInterval(headingTimer);
+        finalizeHeadingCorrection();
+      }
+    }, SAMPLE_MS);
+  }
+
+  function finalizeHeadingCorrection() {
+    state.headingSampleMode = false;
+    if (!state.headingSamples.length) {
+      setMessage("方向校正失敗：沒有收集到方向樣本。");
+      render();
+      return;
+    }
+
+    const avgHeading = normalizeAngle(average(state.headingSamples.map((s) => s.heading)));
+    const before = latestPose().heading ?? state.currentPose.heading;
+    const delta = angleDelta(avgHeading, before);
+
+    state.trail = state.trail.map((p) => {
+      const rotated = rotatePoint(p, delta);
+      return { ...p, x: rotated.x, y: rotated.y, heading: normalizeAngle((p.heading ?? 0) + delta) };
+    });
+
+    const rotated = rotatePoint(state.currentPose, delta);
+    state.currentPose = { ...state.currentPose, x: rotated.x, y: rotated.y, heading: normalizeAngle((state.currentPose.heading ?? 0) + delta) };
+
+    state.corrections.unshift({
+      id: crypto.randomUUID(),
+      type: "heading",
+      beforeHeading: before,
+      afterHeading: avgHeading,
+      delta,
+      sampleCount: state.headingSamples.length,
+      ts: Date.now()
+    });
+
+    setMessage(`方向校正完成。已用 ${state.headingSamples.length} 筆樣本平均，修正 ${fmt(delta, 1)}°。`);
+    render();
+  }
+
+  function exportData() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      anchor: state.anchor,
+      latestPose: latestPose(),
+      stepCount: state.stepCount,
+      stepLength: state.stepLength,
+      geoReading: state.geoReading,
+      trail: state.trail,
+      corrections: state.corrections,
+      settings: {
+        positionSampleSeconds: POSITION_SAMPLE_SECONDS,
+        headingSampleSeconds: HEADING_SAMPLE_SECONDS,
+        minGpsAccuracyMeters: MIN_GPS_ACCURACY_METERS
+      }
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    if (state.exportUrl) URL.revokeObjectURL(state.exportUrl);
+    state.exportUrl = URL.createObjectURL(blob);
+    const link = $("downloadLink");
+    link.href = state.exportUrl;
+    link.download = `indoor-track-${Date.now()}.json`;
+    link.style.display = "inline-flex";
+    setMessage("已產生 JSON 匯出檔，可下載目前軌跡與校正資料。");
+  }
+
+  function beginStepLengthCalibration() {
+    if (state.calibratingStepLength) return;
+    state.calibratingStepLength = true;
+    state.stepCalStart = state.stepCount;
+    setMessage("開始 10 步步長校正：請正常走 10 步，系統會自動計算步長。");
+    render();
+  }
+
+  async function openQrCalibration() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMessage("此瀏覽器不支援相機掃描。");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      state.qrStream = stream;
+      const modal = $("qrModal");
+      const video = $("qrVideo");
+      video.srcObject = stream;
+      await video.play();
+      modal.style.display = "flex";
+      state.qrScanMode = true;
+      setMessage("請把 QR 對準鏡頭。");
+      requestAnimationFrame(scanQrFrame);
+    } catch (e) {
+      setMessage("無法開啟相機：" + e.message);
+    }
+  }
+
+  function closeQrCalibration() {
+    state.qrScanMode = false;
+    $("qrModal").style.display = "none";
+    const video = $("qrVideo");
+    if (state.qrStream) {
+      state.qrStream.getTracks().forEach(t => t.stop());
+      state.qrStream = null;
+    }
+    video.srcObject = null;
+  }
+
+  function applyQrAnchor(text) {
+    if (!text.startsWith(QR_TARGET_PREFIX)) return false;
+    const payload = text.slice(QR_TARGET_PREFIX.length).trim();
+    const parts = payload.split(",").map(s => Number(s.trim()));
+    if (parts.length < 2 || !Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return false;
+
+    const target = {
+      x: parts[0],
+      y: parts[1],
+      heading: Number.isFinite(parts[2]) ? normalizeAngle(parts[2]) : null
+    };
+    const before = latestPose();
+    const dx = target.x - before.x;
+    const dy = target.y - before.y;
+
+    state.trail = state.trail.map(p => ({ ...p, x: p.x + dx, y: p.y + dy }));
+    state.currentPose = { ...state.currentPose, x: state.currentPose.x + dx, y: state.currentPose.y + dy };
+
+    if (target.heading != null) {
+      const delta = angleDelta(target.heading, before.heading ?? state.currentPose.heading);
+      state.trail = state.trail.map((p) => {
+        const rotated = rotatePoint(p, delta);
+        return { ...p, x: rotated.x, y: rotated.y, heading: normalizeAngle((p.heading ?? 0) + delta) };
+      });
+      const rp = rotatePoint(state.currentPose, delta);
+      state.currentPose = { ...state.currentPose, x: rp.x, y: rp.y, heading: normalizeAngle((state.currentPose.heading ?? 0) + delta) };
+      state.corrections.unshift({
+        id: crypto.randomUUID(),
+        type: "qr",
+        beforeX: before.x,
+        beforeY: before.y,
+        afterX: target.x,
+        afterY: target.y,
+        beforeHeading: before.heading,
+        afterHeading: target.heading,
+        ts: Date.now()
+      });
+    } else {
+      state.corrections.unshift({
+        id: crypto.randomUUID(),
+        type: "qr",
+        beforeX: before.x,
+        beforeY: before.y,
+        afterX: target.x,
+        afterY: target.y,
+        ts: Date.now()
+      });
+    }
+
+    setMessage("已套用 QR 校正點。");
+    updateArrivalProgress();
+    render();
+    return true;
+  }
+
+  function scanQrFrame() {
+    if (!state.qrScanMode) return;
+    const video = $("qrVideo");
+    if (video.readyState >= 2 && typeof jsQR !== "undefined") {
+      const c = document.createElement("canvas");
+      c.width = video.videoWidth || 640;
+      c.height = video.videoHeight || 480;
+      const cctx = c.getContext("2d");
+      cctx.drawImage(video, 0, 0, c.width, c.height);
+      const img = cctx.getImageData(0, 0, c.width, c.height);
+      const code = jsQR(img.data, img.width, img.height);
+      if (code && code.data) {
+        if (applyQrAnchor(code.data)) {
+          closeQrCalibration();
+          return;
+        }
+      }
+    }
+    requestAnimationFrame(scanQrFrame);
+  }
+
+  function normalizeHeadingValue(v) {
+    if (v === "" || v == null) return null;
+    let n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    n = n % 360;
+    if (n < 0) n += 360;
+    return Math.round(n);
+  }
+
+  function buildQrPayload() {
+    const x = Number($("xValue").value || 0);
+    const y = Number($("yValue").value || 0);
+    const heading = normalizeHeadingValue($("headingValueInput").value);
+    if (heading === null) return `INDOOR_ANCHOR:${x},${y}`;
+    return `INDOOR_ANCHOR:${x},${y},${heading}`;
+  }
+
+  function qrUrl(text) {
+    return "https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=" + encodeURIComponent(text);
+  }
+
+  function generateQr() {
+    const payload = buildQrPayload();
+    const name = $("anchorName").value.trim() || "未命名校正點";
+    $("payloadText").value = payload;
+    $("payloadPreview").textContent = payload;
+    $("anchorTitle").textContent = name;
+    $("qrImage").src = qrUrl(payload);
+    $("btnDownloadQr").href = qrUrl(payload);
+    $("btnDownloadQr").download = (name.replace(/[^\w\u4e00-\u9fff-]+/g, "_") || "indoor-anchor") + ".png";
+  }
+
+
+  function loadSavedAnchors() {
+    try {
+      const raw = localStorage.getItem("indoor_saved_anchors");
+      state.savedAnchors = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(state.savedAnchors)) state.savedAnchors = [];
+    } catch (e) {
+      state.savedAnchors = [];
+    }
+    renderSavedAnchors();
+  }
+
+  function persistSavedAnchors() {
+    localStorage.setItem("indoor_saved_anchors", JSON.stringify(state.savedAnchors));
+    renderSavedAnchors();
+  }
+
+
+  function exportSavedAnchors() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      anchors: state.savedAnchors
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `indoor-anchors-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setMessage("已匯出校正點清單 JSON。");
+  }
+
+  async function importSavedAnchorsFromFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const anchors = Array.isArray(data) ? data : data.anchors;
+      if (!Array.isArray(anchors)) {
+        throw new Error("JSON 格式不正確，找不到 anchors 陣列。");
+      }
+      const normalized = anchors
+        .map((a, idx) => ({
+          id: a.id || ((crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + idx)),
+          name: a.name || `校正點 ${idx + 1}`,
+          x: Number(a.x ?? 0),
+          y: Number(a.y ?? 0),
+          heading: a.heading == null || a.heading === "" ? null : Number(a.heading),
+          payload: a.payload || `INDOOR_ANCHOR:${Number(a.x ?? 0)},${Number(a.y ?? 0)}${a.heading == null || a.heading === "" ? "" : "," + Number(a.heading)}`,
+          createdAt: a.createdAt || new Date().toISOString()
+        }))
+        .filter((a) => Number.isFinite(a.x) && Number.isFinite(a.y));
+
+      state.savedAnchors = normalized;
+      persistSavedAnchors();
+      setMessage(`已匯入 ${normalized.length} 個校正點。`);
+    } catch (e) {
+      alert("匯入失敗：" + e.message);
+    }
+  }
+
+
+  function currentAnchorDraft() {
+    const name = $("anchorName").value.trim() || "未命名校正點";
+    const x = Number($("xValue").value || 0);
+    const y = Number($("yValue").value || 0);
+    const heading = normalizeHeadingValue($("headingValueInput").value);
+    return {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+      name,
+      x,
+      y,
+      heading,
+      payload: buildQrPayload(),
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  function saveCurrentAnchor() {
+    const draft = currentAnchorDraft();
+    const exists = state.savedAnchors.findIndex(a => a.name === draft.name);
+    if (exists >= 0) {
+      state.savedAnchors[exists] = draft;
+    } else {
+      state.savedAnchors.unshift(draft);
+    }
+    persistSavedAnchors();
+    setMessage(`已儲存校正點：${draft.name}`);
+  }
+
+  function deleteSavedAnchor(id) {
+    state.savedAnchors = state.savedAnchors.filter(a => a.id !== id);
+    persistSavedAnchors();
+  }
+
+  function useSavedAnchor(id) {
+    const a = state.savedAnchors.find(x => x.id === id);
+    if (!a) return;
+    $("anchorName").value = a.name || "";
+    $("xValue").value = a.x;
+    $("yValue").value = a.y;
+    $("headingValueInput").value = a.heading == null ? "" : a.heading;
+    generateQr();
+    switchPage("qrPage");
+  }
+
+  function renderSavedAnchors() {
+    const el = $("anchorList");
+    if (!el) return;
+    if (!state.savedAnchors.length) {
+      el.innerHTML = '<div class="item">尚未儲存任何校正點。</div>';
+      return;
+    }
+    el.innerHTML = state.savedAnchors.map((a) => `
+      <div class="item">
+        <div class="item-top">
+          <strong>${a.name}</strong>
+          <span class="badge">${a.heading == null ? "無方向" : a.heading + "°"}</span>
+        </div>
+        <div>x: ${a.x} / y: ${a.y}</div><div style="color:#64748b; font-size:12px;">來源：${a.source || "manual"}${a.gps?.accuracy ? " / GPS ±" + fmt(a.gps.accuracy,1) + "m" : ""}</div>
+        <div style="margin-top:6px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:#475569; word-break:break-all;">${a.payload}</div>
+        <div class="btns" style="margin-top:10px; margin-bottom:0;">
+          <button data-anchor-use="${a.id}">載入</button>
+          <button data-anchor-nav="${a.id}">在導航頁查看</button>
+          <button data-anchor-waypoint="${a.id}">加入路徑</button>
+          <button data-anchor-correct="${a.id}">校正目前位置</button>
+          <button data-anchor-copy="${a.id}">複製內容</button>
+          <button data-anchor-map="${a.id}">同步到地圖</button>
+          <button data-anchor-del="${a.id}" class="danger">刪除</button>
+        </div>
+      </div>
+    `).join("");
+
+    el.querySelectorAll("[data-anchor-use]").forEach(btn => {
+      btn.addEventListener("click", () => useSavedAnchor(btn.getAttribute("data-anchor-use")));
+    });
+    el.querySelectorAll("[data-anchor-copy]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const a = state.savedAnchors.find(x => x.id === btn.getAttribute("data-anchor-copy"));
+        if (!a) return;
+        try {
+          await navigator.clipboard.writeText(a.payload);
+          alert("已複製 QR 內容");
+        } catch (e) {
+          alert("複製失敗");
+        }
+      });
+    });
+    el.querySelectorAll("[data-anchor-nav]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.showAnchorOverlay = true;
+        state.navTargetId = btn.getAttribute("data-anchor-nav");
+        state.activeLegIndex = 0;
+        state.arrivedTarget = false;
+        state.lastArrivalNoticeKey = "";
+        resetRouteProgressBaseline();
+        switchPage("navPage");
+        setMessage("已切到導航頁，並設為目前目標。");
+        render();
+      });
+    });
+    el.querySelectorAll("[data-anchor-del]").forEach(btn => {
+      btn.addEventListener("click", () => deleteSavedAnchor(btn.getAttribute("data-anchor-del")));
+    });
+    el.querySelectorAll("[data-anchor-map]").forEach(btn => {
+      btn.addEventListener("click", () => syncAnchorToMapById(btn.getAttribute("data-anchor-map")));
+    });
+    el.querySelectorAll("[data-anchor-waypoint]").forEach(btn => {
+      btn.addEventListener("click", () => addWaypointFromList(btn.getAttribute("data-anchor-waypoint")));
+    });
+    el.querySelectorAll("[data-anchor-correct]").forEach(btn => {
+      btn.addEventListener("click", () => applyAnchorCorrection(btn.getAttribute("data-anchor-correct")));
+    });
+  }
+
+
+  function switchPage(pageId) {
+    document.querySelectorAll(".page").forEach(el => el.classList.toggle("active", el.id === pageId));
+    document.querySelectorAll(".tabbtn").forEach(el => el.classList.toggle("active", el.dataset.page === pageId));
+  }
+
+  document.querySelectorAll(".tabbtn").forEach(btn => {
+    btn.addEventListener("click", () => switchPage(btn.dataset.page));
+  });
+
+  $("btnPermission").addEventListener("click", requestPermissions);
+  $("btnAnchor").addEventListener("click", setCurrentGpsAsAnchor);
+  $("btnStart").addEventListener("click", startTracking);
+  $("btnStop").addEventListener("click", stopTracking);
+  $("btnReset").addEventListener("click", resetAll);
+  $("btnPosCorrection").addEventListener("click", beginPositionCorrection);
+  $("btnHeadingCorrection").addEventListener("click", beginHeadingCorrection);
+  $("btnExport").addEventListener("click", exportData);
+  $("btnStepCal").addEventListener("click", beginStepLengthCalibration);
+  $("btnQrCal").addEventListener("click", openQrCalibration);
+  $("btnQrClose").addEventListener("click", closeQrCalibration);
+  $("stepLength").addEventListener("input", (e) => {
+    state.stepLength = Number(e.target.value);
+    render();
+  });
+  $("toggleAnchorOverlay").addEventListener("change", (e) => {
+    state.showAnchorOverlay = e.target.checked;
+    render();
+  });
+  $("toggleMapOverlay").addEventListener("change", (e) => {
+    state.showMapOverlay = e.target.checked;
+    render();
+  });
+  $("btnSetTarget").addEventListener("click", setNavTarget);
+  $("btnClearTarget").addEventListener("click", clearNavTarget);
+  $("navTargetSelect").addEventListener("change", setNavTarget);
+  $("routeModeSelect").addEventListener("change", setRouteMode);
+  $("routeWaypointsSelect").addEventListener("change", applyWaypointSelection);
+  $("btnApplyRoute").addEventListener("click", applyWaypointSelection);
+  $("btnClearRoute").addEventListener("click", clearRouteWaypoints);
+  $("arrivalThresholdInput").addEventListener("change", (e) => {
+    const v = Number(e.target.value);
+    state.arrivalThreshold = Number.isFinite(v) && v > 0 ? v : 2.0;
+    render();
+  });
+  $("toggleVoiceGuide").addEventListener("change", (e) => {
+    state.voiceGuideEnabled = e.target.checked;
+    if (!state.voiceGuideEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    render();
+  });
+  $("btnNavSessionStart").addEventListener("click", startNavSession);
+  $("btnNavSessionPause").addEventListener("click", pauseNavSession);
+  $("btnNavSessionResume").addEventListener("click", resumeNavSession);
+  $("btnNavSessionEnd").addEventListener("click", () => finishNavSession("ended"));
+  $("btnExportNavHistory").addEventListener("click", exportNavHistory);
+
+  $("btnEditorIdle").addEventListener("click", () => setEditorMode("idle"));
+  $("btnEditorPoint").addEventListener("click", () => setEditorMode("point"));
+  $("btnEditorLine").addEventListener("click", () => setEditorMode("line"));
+  $("btnEditorArea").addEventListener("click", () => setEditorMode("area"));
+  $("btnEditorUndo").addEventListener("click", undoMapElement);
+  $("btnEditorNormalize").addEventListener("click", () => { normalizeLineNetwork(); render(); });
+  $("btnEditorClear").addEventListener("click", () => {
+    if (!confirm("確定要清空所有地圖元素嗎？")) return;
+    state.mapElements = [];
+    state.editorDraftPoints = [];
+    persistMapElements();
+    setEditorMessage("已清空所有地圖元素。");
+    render();
+  });
+  $("editorNameInput").addEventListener("input", () => render());
+  $("toggleSnapMode").addEventListener("change", (e) => { state.snapEnabled = e.target.checked; render(); });
+  $("toggleAutoIntersect").addEventListener("change", (e) => { state.autoIntersectEnabled = e.target.checked; render(); });
+  $("editorCanvas").addEventListener("click", handleEditorCanvasClick);
+  $("btnUpdateSelectedMapElement").addEventListener("click", updateSelectedMapElementName);
+  $("btnDeleteSelectedMapElement").addEventListener("click", deleteSelectedMapElement);
+  $("btnConvertSelectedToAnchor").addEventListener("click", convertSelectedMapElementToAnchor);
+  $("btnExportMapData").addEventListener("click", exportMapData);
+  $("btnImportMapData").addEventListener("click", () => $("importMapDataFile").click());
+  $("importMapDataFile").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    importMapData(file);
+    e.target.value = "";
+  });
+
+  $("btnClearNavHistory").addEventListener("click", () => {
+    if (!confirm("確定要清空所有導航歷史嗎？")) return;
+    state.navHistory = [];
+    persistNavHistory();
+  });
+
+  $("btnGenerate").addEventListener("click", generateQr);
+  $("btnSaveAnchor").addEventListener("click", saveCurrentAnchor);
+  $("btnExportAnchors").addEventListener("click", exportSavedAnchors);
+  $("btnSyncAnchorsToMap").addEventListener("click", syncAllAnchorsToMap);
+  $("btnImportAnchors").addEventListener("click", () => $("importAnchorsFile").click());
+  $("importAnchorsFile").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    importSavedAnchorsFromFile(file);
+    e.target.value = "";
+  });
+  $("btnClearAnchors").addEventListener("click", () => {
+    if (!confirm("確定要清空所有已儲存校正點嗎？")) return;
+    state.savedAnchors = [];
+    persistSavedAnchors();
+  });
+  $("btnCopy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("payloadText").value);
+      alert("已複製 QR 內容");
+    } catch (e) {
+      alert("複製失敗，請手動選取文字");
+    }
+  });
+  ["anchorName", "xValue", "yValue", "headingValueInput"].forEach((id) => {
+    $(id).addEventListener("input", generateQr);
+  });
+
+  window.addEventListener("deviceorientation", handleOrientation, true);
+  window.addEventListener("devicemotion", handleMotion, true);
+
+  injectEnhancementUI();
+  attachViewportHandlers($("trackCanvasWrap"), $("trackCanvas"), state.navViewport, "nav");
+  attachViewportHandlers($("editorCanvasWrap"), $("editorCanvas"), state.editorViewport, "editor");
+  $("btnGpsAnchorCreate")?.addEventListener("click", createSavedAnchorFromGps);
+  $("btnUseGpsForDraftAnchor")?.addEventListener("click", createAnchorFromGpsDraft);
+  $("btnAnchorCorrection")?.addEventListener("click", () => applyAnchorCorrection($("anchorCorrectionSelect")?.value));
+  $("btnGpsFusionCorrection")?.addEventListener("click", async () => {
+    try {
+      setMessage("以 GPS 柔性校正中，請站定 4 秒。");
+      const sample = await sampleCurrentGps(4000);
+      applySoftGpsCorrection(sample, "gps-manual");
+      setMessage(`已完成 GPS 柔性校正，平均誤差 ${fmt(sample.accuracy, 1)} m。`);
+      render();
+    } catch (e) {
+      setMessage("GPS 柔性校正失敗：" + e.message);
+    }
+  });
+  $("btnEditorAnchor")?.addEventListener("click", () => {
+    state.anchorCreationMode = true;
+    setEditorMode("point");
+    setEditorMessage("標定點模式：在地圖上點一下直接新增標定點。");
+    render();
+  });
+
+  generateQr();
+  loadSavedAnchors();
+  loadNavHistory();
+  loadMapElements();
+  render();
+})();
+</script>
+</body>
+</html>
