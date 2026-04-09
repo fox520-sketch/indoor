@@ -964,9 +964,14 @@
 
     drawMapElementsOnCanvas(ctx, true, state.navViewport, wrapEl);
 
+    const currentPoseAnchors = [];
     if (state.showAnchorOverlay && state.savedAnchors.length) {
       ctx.font = "12px system-ui, sans-serif";
       state.savedAnchors.forEach((a) => {
+        if (a?.source === "current-pose") {
+          currentPoseAnchors.push(a);
+          return;
+        }
         const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
         const anchorColor = anchorDisplayColor(a);
         ctx.fillStyle = anchorColor;
@@ -1065,6 +1070,37 @@
     ctx.beginPath();
     ctx.arc(lastPt.x, lastPt.y, fixedRadius(8), 0, Math.PI * 2);
     ctx.fill();
+
+    if (currentPoseAnchors.length) {
+      currentPoseAnchors.forEach((a, idx) => {
+        const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
+        const ringRadius = fixedRadius(12 + Math.min(idx, 2) * 4);
+        ctx.strokeStyle = anchorDisplayColor(a);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, ringRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, fixedRadius(3), 0, Math.PI * 2);
+        ctx.fill();
+
+        if (a.heading != null && Number.isFinite(Number(a.heading))) {
+          const rad = (Number(a.heading) * Math.PI) / 180;
+          ctx.strokeStyle = anchorDisplayColor(a);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(pt.x, pt.y);
+          ctx.lineTo(pt.x + Math.sin(rad) * 18, pt.y - Math.cos(rad) * 18);
+          ctx.stroke();
+        }
+
+        const labelDx = 18 + Math.min(idx, 2) * 12;
+        const labelDy = -18 - Math.min(idx, 2) * 8;
+        labelBox(ctx, pt.x + labelDx, pt.y + labelDy, a.name || "目前位置標定點", anchorLabelColor(a));
+      });
+    }
   }
 
 
@@ -2821,9 +2857,6 @@
           ts: Date.now()
         };
         updateAutoStepCalibration(state.geoReading);
-        if (state.tracking && Number.isFinite(state.geoReading.accuracy) && state.geoReading.accuracy <= 10 && Date.now() - state.lastGeoCorrectionAt > 12000) {
-          applySoftGpsCorrection(state.geoReading, "gps-live");
-        }
         render();
       },
       () => {},
