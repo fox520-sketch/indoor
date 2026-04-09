@@ -610,7 +610,7 @@
         render();
       }
     }, 1600);
-    setMessage(`已用目前位置建立標定點：${anchor.name} (${fmt(x, 2)}, ${fmt(y, 2)})。`);
+    setMessage(`已用目前位置建立標定點：${anchor.name} (${fmt(x, 2)}, ${fmt(y, 2)})。它會以紫色菱形標記顯示在紅點同一位置。`);
     render();
   }
 
@@ -1097,27 +1097,41 @@
     if (currentPoseAnchors.length) {
       currentPoseAnchors.forEach((a, idx) => {
         const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
-        const ringRadius = fixedRadius(12 + Math.min(idx, 2) * 4);
-        ctx.strokeStyle = anchorDisplayColor(a);
+        const color = anchorDisplayColor(a);
+        const ringRadius = fixedRadius(14 + Math.min(idx, 2) * 4);
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
         ctx.lineWidth = state.highlightAnchorId === a.id ? 5 : 3;
+
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, ringRadius, 0, Math.PI * 2);
         ctx.stroke();
 
         if (state.highlightAnchorId === a.id) {
           ctx.beginPath();
-          ctx.arc(pt.x, pt.y, fixedRadius(18 + Math.min(idx, 2) * 4), 0, Math.PI * 2);
+          ctx.arc(pt.x, pt.y, fixedRadius(22 + Math.min(idx, 2) * 4), 0, Math.PI * 2);
           ctx.stroke();
         }
 
+        const diamondR = fixedRadius(9);
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y - diamondR);
+        ctx.lineTo(pt.x + diamondR, pt.y);
+        ctx.lineTo(pt.x, pt.y + diamondR);
+        ctx.lineTo(pt.x - diamondR, pt.y);
+        ctx.closePath();
+        ctx.fill();
+
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, fixedRadius(3), 0, Math.PI * 2);
+        ctx.arc(pt.x, pt.y, fixedRadius(4), 0, Math.PI * 2);
         ctx.fill();
 
         if (a.heading != null && Number.isFinite(Number(a.heading))) {
           const rad = (Number(a.heading) * Math.PI) / 180;
-          ctx.strokeStyle = anchorDisplayColor(a);
+          ctx.strokeStyle = color;
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(pt.x, pt.y);
@@ -1125,9 +1139,17 @@
           ctx.stroke();
         }
 
-        const labelDx = 18 + Math.min(idx, 2) * 12;
-        const labelDy = -18 - Math.min(idx, 2) * 8;
-        labelBox(ctx, pt.x + labelDx, pt.y + labelDy, a.name || "目前位置標定點", anchorLabelColor(a));
+        const calloutX = pt.x + 28 + Math.min(idx, 2) * 14;
+        const calloutY = pt.y - 28 - Math.min(idx, 2) * 10;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pt.x + diamondR * 0.7, pt.y - diamondR * 0.7);
+        ctx.lineTo(calloutX - 8, calloutY + 8);
+        ctx.stroke();
+
+        labelBox(ctx, calloutX, calloutY, a.name || "目前位置標定點", anchorLabelColor(a));
+        ctx.restore();
       });
     }
   }
