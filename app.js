@@ -43,6 +43,7 @@
     qrScanMode: false,
     qrStream: null,
     savedAnchors: [],
+    highlightAnchorId: "",
     showAnchorOverlay: true,
     navTargetId: "",
     routeMode: "direct",
@@ -423,10 +424,10 @@
       extra.className = "btns";
       extra.style.marginTop = "10px";
       extra.innerHTML = `
-        <button id="btnGpsAnchorCreate" class="secondary">以 GPS 新增標定點</button>
-        <button id="btnPoseAnchorCreate" class="secondary">以目前位置新增標定點</button>
-        <button id="btnAnchorCorrection" class="secondary">以標定點校正目前位置</button>
-        <button id="btnGpsFusionCorrection" class="secondary">以 GPS 柔性校正</button>
+        <button id="btnGpsAnchorCreate" class="secondary" type="button">以 GPS 新增標定點</button>
+        <button id="btnPoseAnchorCreate" class="secondary" type="button">以目前位置新增標定點</button>
+        <button id="btnAnchorCorrection" class="secondary" type="button">以標定點校正目前位置</button>
+        <button id="btnGpsFusionCorrection" class="secondary" type="button">以 GPS 柔性校正</button>
       `;
       navBtnRow.parentNode.insertBefore(extra, navBtnRow.nextSibling);
     }
@@ -582,20 +583,34 @@
 
   function createAnchorFromCurrentPose() {
     const pose = latestPose();
-    const heading = Math.round(normalizeAngle(pose.heading ?? state.orientation.heading ?? 0));
+    const x = Number((pose?.x || 0).toFixed(2));
+    const y = Number((pose?.y || 0).toFixed(2));
+    const heading = Math.round(normalizeAngle(pose?.heading ?? state.orientation.heading ?? 0));
     const anchor = {
       id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
       name: `目前位置標定點 ${state.savedAnchors.filter(a => a.source === 'current-pose').length + 1}`,
-      x: Number((pose.x || 0).toFixed(2)),
-      y: Number((pose.y || 0).toFixed(2)),
+      x,
+      y,
       heading,
       source: 'current-pose',
-      payload: `INDOOR_ANCHOR:${Number((pose.x || 0).toFixed(2))},${Number((pose.y || 0).toFixed(2))},${heading}`,
+      payload: `INDOOR_ANCHOR:${x},${y},${heading}`,
       createdAt: new Date().toISOString()
     };
     state.savedAnchors.unshift(anchor);
+    state.showAnchorOverlay = true;
+    state.highlightAnchorId = anchor.id;
     persistSavedAnchors();
-    setMessage(`已用目前位置建立標定點：${anchor.name}。`);
+    switchPage("navPage");
+    if (typeof focusNavViewportOnWorldPoint === "function") {
+      focusNavViewportOnWorldPoint({ x, y }, 1.15);
+    }
+    setTimeout(() => {
+      if (state.highlightAnchorId === anchor.id) {
+        state.highlightAnchorId = "";
+        render();
+      }
+    }, 1600);
+    setMessage(`已用目前位置建立標定點：${anchor.name} (${fmt(x, 2)}, ${fmt(y, 2)})。`);
     render();
   }
 
@@ -979,6 +994,14 @@
         ctx.arc(pt.x, pt.y, fixedRadius(6), 0, Math.PI * 2);
         ctx.fill();
 
+        if (state.highlightAnchorId === a.id) {
+          ctx.strokeStyle = anchorColor;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, fixedRadius(14), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
         if (a.heading != null && Number.isFinite(Number(a.heading))) {
           const rad = (Number(a.heading) * Math.PI) / 180;
           ctx.strokeStyle = anchorColor;
@@ -1076,10 +1099,16 @@
         const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
         const ringRadius = fixedRadius(12 + Math.min(idx, 2) * 4);
         ctx.strokeStyle = anchorDisplayColor(a);
-        ctx.lineWidth = 3;
+        ctx.lineWidth = state.highlightAnchorId === a.id ? 5 : 3;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, ringRadius, 0, Math.PI * 2);
         ctx.stroke();
+
+        if (state.highlightAnchorId === a.id) {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, fixedRadius(18 + Math.min(idx, 2) * 4), 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
@@ -3514,6 +3543,14 @@
   });
   $("btnGpsAnchorCreate")?.addEventListener("click", createSavedAnchorFromGps);
   $("btnPoseAnchorCreate")?.addEventListener("click", createAnchorFromCurrentPose);
+  document.addEventListener("click", (e) => {
+    const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
+    if (target) {
+      e.preventDefault();
+      createAnchorFromCurrentPose();
+    }
+  });
+
   $("btnUseGpsForDraftAnchor")?.addEventListener("click", createAnchorFromGpsDraft);
   $("btnAnchorCorrection")?.addEventListener("click", () => applyAnchorCorrection($("anchorCorrectionSelect")?.value));
   $("btnGpsFusionCorrection")?.addEventListener("click", async () => {
