@@ -632,7 +632,7 @@
         render();
       }
     }, 1600);
-    setMessage(`已用目前位置建立標定點：${anchor.name} (${fmt(x, 2)}, ${fmt(y, 2)})。它會以紫色菱形標記顯示在紅點同一位置。`);
+    setMessage(`已用目前位置建立標定點：${anchor.name} (${fmt(x, 2)}, ${fmt(y, 2)})。它會顯示為紅點旁邊的紫色浮動標記。`);
     render();
   }
 
@@ -1001,65 +1001,16 @@
 
     drawMapElementsOnCanvas(ctx, true, state.navViewport, wrapEl);
 
+    const currentPoseAnchors = [];
     if (state.showAnchorOverlay && state.savedAnchors.length) {
       ctx.font = "12px system-ui, sans-serif";
       state.savedAnchors.forEach((a, idx) => {
-        const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
-        const anchorColor = anchorDisplayColor(a);
-        const isCurrentPoseAnchor = a?.source === "current-pose";
-
-        if (isCurrentPoseAnchor) {
-          ctx.save();
-          ctx.strokeStyle = anchorColor;
-          ctx.fillStyle = anchorColor;
-          ctx.lineWidth = state.highlightAnchorId === a.id ? 5 : 3;
-
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, fixedRadius(14), 0, Math.PI * 2);
-          ctx.stroke();
-
-          if (state.highlightAnchorId === a.id) {
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, fixedRadius(22), 0, Math.PI * 2);
-            ctx.stroke();
-          }
-
-          const diamondR = fixedRadius(9);
-          ctx.beginPath();
-          ctx.moveTo(pt.x, pt.y - diamondR);
-          ctx.lineTo(pt.x + diamondR, pt.y);
-          ctx.lineTo(pt.x, pt.y + diamondR);
-          ctx.lineTo(pt.x - diamondR, pt.y);
-          ctx.closePath();
-          ctx.fill();
-
-          ctx.fillStyle = "#ffffff";
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, fixedRadius(4), 0, Math.PI * 2);
-          ctx.fill();
-
-          if (a.heading != null && Number.isFinite(Number(a.heading))) {
-            const rad = (Number(a.heading) * Math.PI) / 180;
-            ctx.strokeStyle = anchorColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(pt.x, pt.y);
-            ctx.lineTo(pt.x + Math.sin(rad) * 18, pt.y - Math.cos(rad) * 18);
-            ctx.stroke();
-          }
-
-          const calloutX = pt.x + 28 + Math.min(idx, 2) * 14;
-          const calloutY = pt.y - 28 - Math.min(idx, 2) * 10;
-          ctx.strokeStyle = anchorColor;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(pt.x + diamondR * 0.7, pt.y - diamondR * 0.7);
-          ctx.lineTo(calloutX - 8, calloutY + 8);
-          ctx.stroke();
-          labelBox(ctx, calloutX, calloutY, a.name || "目前位置標定點", anchorLabelColor(a));
-          ctx.restore();
+        if (a?.source === "current-pose") {
+          currentPoseAnchors.push({ anchor: a, idx });
           return;
         }
+        const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
+        const anchorColor = anchorDisplayColor(a);
 
         ctx.fillStyle = anchorColor;
         ctx.beginPath();
@@ -1165,6 +1116,64 @@
     ctx.beginPath();
     ctx.arc(lastPt.x, lastPt.y, fixedRadius(8), 0, Math.PI * 2);
     ctx.fill();
+
+    if (currentPoseAnchors.length) {
+      currentPoseAnchors.forEach(({ anchor: a, idx }) => {
+        const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
+        const color = anchorDisplayColor(a);
+        const angle = (-45 + idx * 18) * Math.PI / 180;
+        const badgeOffset = fixedRadius(28 + Math.min(idx, 2) * 8);
+        const badgeX = pt.x + Math.cos(angle) * badgeOffset;
+        const badgeY = pt.y + Math.sin(angle) * badgeOffset;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = state.highlightAnchorId === a.id ? 5 : 3;
+
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+        ctx.lineTo(badgeX, badgeY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, fixedRadius(14), 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (state.highlightAnchorId === a.id) {
+          ctx.beginPath();
+          ctx.arc(badgeX, badgeY, fixedRadius(22), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        const diamondR = fixedRadius(9);
+        ctx.beginPath();
+        ctx.moveTo(badgeX, badgeY - diamondR);
+        ctx.lineTo(badgeX + diamondR, badgeY);
+        ctx.lineTo(badgeX, badgeY + diamondR);
+        ctx.lineTo(badgeX - diamondR, badgeY);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, fixedRadius(4), 0, Math.PI * 2);
+        ctx.fill();
+
+        if (a.heading != null && Number.isFinite(Number(a.heading))) {
+          const rad = (Number(a.heading) * Math.PI) / 180;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(badgeX, badgeY);
+          ctx.lineTo(badgeX + Math.sin(rad) * 18, badgeY - Math.cos(rad) * 18);
+          ctx.stroke();
+        }
+
+        labelBox(ctx, badgeX + 18, badgeY - 18, a.name || "目前位置標定點", anchorLabelColor(a));
+        ctx.restore();
+      });
+    }
 
   }
 
