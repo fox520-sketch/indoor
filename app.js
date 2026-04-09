@@ -48,6 +48,7 @@
     highlightAnchorId: "",
     lastPoseAnchorCreateAt: 0,
     lastNavCanvasDragAt: 0,
+    lastNavCanvasTapAt: 0,
     showAnchorOverlay: true,
     navTargetId: "",
     routeMode: "direct",
@@ -591,60 +592,6 @@
     render();
   }
 
-  function triggerCreateAnchorFromCurrentPose() {
-    const now = Date.now();
-    if (now - (state.lastPoseAnchorCreateAt || 0) < 700) return;
-    state.lastPoseAnchorCreateAt = now;
-    createAnchorFromCurrentPose();
-  }
-
-  function createAnchorFromCurrentPose() {
-    const pose = latestPose();
-    const x = Number((pose?.x || 0).toFixed(2));
-    const y = Number((pose?.y || 0).toFixed(2));
-    const heading = Math.round(normalizeAngle(pose?.heading ?? state.orientation.heading ?? 0));
-    const anchor = {
-      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
-      name: `目前位置標定點 ${state.savedAnchors.filter(a => a.source === 'current-pose').length + 1}`,
-      x,
-      y,
-      heading,
-      source: 'current-pose',
-      payload: `INDOOR_ANCHOR:${x},${y},${heading}`,
-      createdAt: new Date().toISOString()
-    };
-    state.savedAnchors.unshift(anchor);
-    state.showAnchorOverlay = true;
-    state.highlightAnchorId = anchor.id;
-
-    state.mapElements.unshift({
-      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + 1),
-      type: "point",
-      name: anchor.name,
-      x,
-      y,
-      semantic: "landmark",
-      source: "current-pose-anchor",
-      anchorId: anchor.id,
-      createdAt: new Date().toISOString()
-    });
-
-    persistSavedAnchors();
-    persistMapElements();
-    switchPage("navPage");
-    if (typeof focusNavViewportOnWorldPoint === "function") {
-      focusNavViewportOnWorldPoint({ x, y }, 1.15);
-    }
-    setTimeout(() => {
-      if (state.highlightAnchorId === anchor.id) {
-        state.highlightAnchorId = "";
-        render();
-      }
-    }, 1600);
-    setMessage(`已用目前位置建立標定點：${anchor.name} (${fmt(x, 2)}, ${fmt(y, 2)})。它會顯示為紅點旁邊的紫色浮動標記。`);
-    render();
-  }
-
   async function createAnchorFromGpsDraft() {
     try {
       state.gpsAnchorSampling = true;
@@ -943,7 +890,8 @@
 
   function addNavTrackPointAt(world) {
     const defaultName = `軌跡點 ${state.navTrackPoints.length + 1}`;
-    const name = (window.prompt("請輸入軌跡點名稱", defaultName) || "").trim();
+    const promptValue = window.prompt("請輸入軌跡點名稱", defaultName);
+    const name = (promptValue || "").trim();
     if (!name) {
       setMessage("已取消新增軌跡點。");
       return;
@@ -966,6 +914,19 @@
 
   function handleNavCanvasClick(evt) {
     if (Date.now() - (state.lastNavCanvasDragAt || 0) < 250) return;
+    const world = navCanvasWorldFromEvent(evt);
+    const existing = findNavTrackPointNear(world);
+    if (existing) {
+      showNavTrackPointInfo(existing);
+      return;
+    }
+    addNavTrackPointAt(world);
+  }
+
+  function handleNavCanvasPointerUp(evt) {
+    if (Date.now() - (state.lastNavCanvasDragAt || 0) < 250) return;
+    if (Date.now() - (state.lastNavCanvasTapAt || 0) < 350) return;
+    state.lastNavCanvasTapAt = Date.now();
     const world = navCanvasWorldFromEvent(evt);
     const existing = findNavTrackPointNear(world);
     if (existing) {
@@ -3081,7 +3042,7 @@
       () => {},
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
     );
-    setMessage("開始追蹤。現在可直接點導航地圖新增軌跡點；點已存在的軌跡點可查看座標與距起點軌跡距離。");
+    setMessage("開始追蹤。現在可直接點導航地圖新增軌跡點；再點已存在的軌跡點可查看座標與距起點軌跡距離。若手機上單點沒反應，請放開手指後再輕點一次。");
     render();
   }
 
@@ -3709,6 +3670,12 @@
   attachViewportHandlers($("trackCanvasWrap"), $("trackCanvas"), state.navViewport, "nav");
   attachViewportHandlers($("editorCanvasWrap"), $("editorCanvas"), state.editorViewport, "editor");
   $("trackCanvas")?.addEventListener("click", handleNavCanvasClick);
+  $("trackCanvas")?.addEventListener("pointerup", handleNavCanvasPointerUp);
+  $("trackCanvas")?.addEventListener("touchend", (evt) => {
+    const touch = evt.changedTouches && evt.changedTouches[0];
+    if (!touch) return;
+    handleNavCanvasPointerUp({ clientX: touch.clientX, clientY: touch.clientY });
+  }, { passive: true });
   $("btnTrackFullscreen")?.addEventListener("click", () => toggleWrapFullscreen("trackCanvasWrap"));
   $("btnNavAutoFit")?.addEventListener("click", () => {
     state.navAutoFit = !state.navAutoFit;
@@ -3734,21 +3701,6 @@
   });
     
 
-  document.addEventListener("touchend", (e) => {
-    const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
-    if (target) {
-      e.preventDefault();
-      triggerCreateAnchorFromCurrentPose();
-    }
-  }, { passive: false });
-
-  document.addEventListener("pointerup", (e) => {
-    const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
-    if (target) {
-      e.preventDefault();
-      triggerCreateAnchorFromCurrentPose();
-    }
-  });
   $("btnUseGpsForDraftAnchor")?.addEventListener("click", createAnchorFromGpsDraft);
   $("btnAnchorCorrection")?.addEventListener("click", () => applyAnchorCorrection($("anchorCorrectionSelect")?.value));
   $("btnGpsFusionCorrection")?.addEventListener("click", async () => {
