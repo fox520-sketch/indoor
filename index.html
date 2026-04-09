@@ -339,6 +339,67 @@
       font-weight: 600;
       box-shadow: 0 2px 10px rgba(15,23,42,.08);
     }
+    .map-action-btn {
+      pointer-events: auto;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.95);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 2px 10px rgba(15,23,42,.08);
+      cursor: pointer;
+    }
+    .map-action-btn:hover {
+      background: white;
+    }
+    .map-action-group {
+      right: 14px;
+      bottom: 14px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .map-wrap.fullscreen-active,
+    .map-wrap:fullscreen,
+    .map-wrap:-webkit-full-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #f8fafc;
+      border-radius: 0;
+      padding: 16px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .map-wrap.fullscreen-active canvas,
+    .map-wrap:fullscreen canvas,
+    .map-wrap:-webkit-full-screen canvas {
+      width: min(calc(100vw - 32px), calc(100vh - 32px));
+      height: auto;
+      margin: 0 auto;
+    }
+    .map-wrap.fullscreen-active .zoom-chip,
+    .map-wrap:fullscreen .zoom-chip,
+    .map-wrap:-webkit-full-screen .zoom-chip {
+      left: 20px;
+      top: 20px;
+    }
+    .map-wrap.fullscreen-active .compass,
+    .map-wrap:fullscreen .compass,
+    .map-wrap:-webkit-full-screen .compass {
+      right: 20px;
+      top: 20px;
+    }
+    .map-wrap.fullscreen-active .map-action-group,
+    .map-wrap:fullscreen .map-action-group,
+    .map-wrap:-webkit-full-screen .map-action-group {
+      right: 20px;
+      bottom: 20px;
+    }
 
   </style>
 </head>
@@ -789,8 +850,8 @@
   const CENTER = TRACK_SIZE / 2;
   const DEFAULT_CANVAS_SCALE = 1;
   const DEFAULT_VIEW_SCALE = 1;
-  const MIN_VIEW_SCALE = 0.65;
-  const MAX_VIEW_SCALE = 3.2;
+  const MIN_VIEW_SCALE = 0.2;
+  const MAX_VIEW_SCALE = 4.8;
   const DEFAULT_WORLD_SCALE = 8;
 
   const state = {
@@ -887,8 +948,8 @@
 
   function clampViewport(viewport) {
     viewport.scale = Math.max(viewport.minScale || MIN_VIEW_SCALE, Math.min(viewport.maxScale || MAX_VIEW_SCALE, viewport.scale || 1));
-    viewport.panX = Math.max(-240, Math.min(240, viewport.panX || 0));
-    viewport.panY = Math.max(-240, Math.min(240, viewport.panY || 0));
+    viewport.panX = Math.max(-4000, Math.min(4000, viewport.panX || 0));
+    viewport.panY = Math.max(-4000, Math.min(4000, viewport.panY || 0));
   }
 
   function screenPointToCanvasRaw(evt, canvasEl) {
@@ -911,6 +972,181 @@
     applyViewportTransform($("editorCanvas"), state.editorViewport, "editorZoomChip");
     setCompass("navCompassNeedle", state.orientation.heading || latestPose().heading || 0);
     setCompass("editorCompassNeedle", state.orientation.heading || latestPose().heading || 0);
+    updateFullscreenButtons();
+  }
+
+  function markViewportManual(viewport) {
+    if (!viewport) return;
+    viewport.lastManualAt = Date.now();
+  }
+
+  function getWrapRect(wrapEl) {
+    const rect = wrapEl?.getBoundingClientRect?.();
+    return {
+      width: rect?.width || TRACK_SIZE,
+      height: rect?.height || TRACK_SIZE
+    };
+  }
+
+  function getBasePixelsPerWorld(wrapEl) {
+    const rect = getWrapRect(wrapEl);
+    return {
+      x: (rect.width / TRACK_SIZE) * DEFAULT_WORLD_SCALE,
+      y: (rect.height / TRACK_SIZE) * DEFAULT_WORLD_SCALE
+    };
+  }
+
+  function viewportWorldToScreen(point, viewport, wrapEl) {
+    const rect = getWrapRect(wrapEl);
+    const base = getBasePixelsPerWorld(wrapEl);
+    return {
+      x: rect.width / 2 + (viewport?.panX || 0) + Number(point?.x || 0) * base.x * (viewport?.scale || 1),
+      y: rect.height / 2 + (viewport?.panY || 0) + Number(point?.y || 0) * base.y * (viewport?.scale || 1)
+    };
+  }
+
+  function normalizeBounds(bounds) {
+    if (!bounds || !Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX) || !Number.isFinite(bounds.minY) || !Number.isFinite(bounds.maxY)) {
+      return { minX: -4, maxX: 4, minY: -4, maxY: 4 };
+    }
+    if (bounds.minX === bounds.maxX) {
+      bounds.minX -= 2;
+      bounds.maxX += 2;
+    }
+    if (bounds.minY === bounds.maxY) {
+      bounds.minY -= 2;
+      bounds.maxY += 2;
+    }
+    return bounds;
+  }
+
+  function collectNavWorldBounds() {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const addPoint = (x, y) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      minX = Math.min(minX, Number(x));
+      minY = Math.min(minY, Number(y));
+      maxX = Math.max(maxX, Number(x));
+      maxY = Math.max(maxY, Number(y));
+    };
+
+    state.trail.forEach((p) => addPoint(p.x, p.y));
+    const pose = latestPose();
+    addPoint(pose.x, pose.y);
+    state.savedAnchors.forEach((a) => addPoint(a.x, a.y));
+    state.plannedRoutePoints.forEach((p) => addPoint(p.x, p.y));
+    state.mapElements.forEach((el) => {
+      if (el.type === "point") {
+        addPoint(el.x, el.y);
+      } else if (Array.isArray(el.points)) {
+        el.points.forEach((p) => addPoint(p.x, p.y));
+      }
+    });
+
+    return normalizeBounds({ minX, minY, maxX, maxY });
+  }
+
+  function fitViewportToBounds(viewport, bounds, wrapEl, padding = 48) {
+    if (!viewport || !wrapEl) return;
+    const normalized = normalizeBounds({ ...bounds });
+    const rect = getWrapRect(wrapEl);
+    const base = getBasePixelsPerWorld(wrapEl);
+    const worldWidth = Math.max(normalized.maxX - normalized.minX, 8);
+    const worldHeight = Math.max(normalized.maxY - normalized.minY, 8);
+    const availableWidth = Math.max(rect.width - padding * 2, rect.width * 0.35);
+    const availableHeight = Math.max(rect.height - padding * 2, rect.height * 0.35);
+    const scaleX = availableWidth / Math.max(worldWidth * base.x, 1);
+    const scaleY = availableHeight / Math.max(worldHeight * base.y, 1);
+    viewport.scale = Math.min(viewport.maxScale || MAX_VIEW_SCALE, Math.max(viewport.minScale || MIN_VIEW_SCALE, Math.min(scaleX, scaleY)));
+
+    const centerX = (normalized.minX + normalized.maxX) / 2;
+    const centerY = (normalized.minY + normalized.maxY) / 2;
+    viewport.panX = -centerX * base.x * viewport.scale;
+    viewport.panY = -centerY * base.y * viewport.scale;
+    clampViewport(viewport);
+  }
+
+  function ensureNavViewportVisible(forceFit = false) {
+    const wrapEl = $("trackCanvasWrap");
+    if (!wrapEl) return;
+    const bounds = collectNavWorldBounds();
+    const pose = latestPose();
+    const rect = getWrapRect(wrapEl);
+    const safeMargin = Math.max(40, Math.min(rect.width, rect.height) * 0.12);
+    const currentScreen = viewportWorldToScreen(pose, state.navViewport, wrapEl);
+    const outsideCurrent = currentScreen.x < safeMargin || currentScreen.x > rect.width - safeMargin || currentScreen.y < safeMargin || currentScreen.y > rect.height - safeMargin;
+
+    const corners = [
+      { x: bounds.minX, y: bounds.minY },
+      { x: bounds.maxX, y: bounds.minY },
+      { x: bounds.maxX, y: bounds.maxY },
+      { x: bounds.minX, y: bounds.maxY }
+    ].map((p) => viewportWorldToScreen(p, state.navViewport, wrapEl));
+    const minSX = Math.min(...corners.map((p) => p.x));
+    const maxSX = Math.max(...corners.map((p) => p.x));
+    const minSY = Math.min(...corners.map((p) => p.y));
+    const maxSY = Math.max(...corners.map((p) => p.y));
+    const boundsOutside = minSX < 12 || maxSX > rect.width - 12 || minSY < 12 || maxSY > rect.height - 12;
+    const manualRecently = Date.now() - (state.navViewport.lastManualAt || 0) < 2200;
+
+    if (forceFit || outsideCurrent || (!manualRecently && boundsOutside)) {
+      fitViewportToBounds(state.navViewport, bounds, wrapEl, safeMargin);
+    }
+  }
+
+  function setWrapFullscreenState(wrapEl, active) {
+    if (!wrapEl) return;
+    wrapEl.classList.toggle("fullscreen-active", Boolean(active));
+    document.body.style.overflow = active ? "hidden" : "";
+  }
+
+  function isWrapFullscreen(wrapEl) {
+    if (!wrapEl) return false;
+    return document.fullscreenElement === wrapEl || document.webkitFullscreenElement === wrapEl || wrapEl.classList.contains("fullscreen-active");
+  }
+
+  async function toggleWrapFullscreen(wrapId) {
+    const wrapEl = $(wrapId);
+    if (!wrapEl) return;
+    const active = isWrapFullscreen(wrapEl);
+    try {
+      if (!active) {
+        if (wrapEl.requestFullscreen) {
+          await wrapEl.requestFullscreen();
+        } else if (wrapEl.webkitRequestFullscreen) {
+          await wrapEl.webkitRequestFullscreen();
+        } else {
+          setWrapFullscreenState(wrapEl, true);
+        }
+      } else if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+      } else {
+        setWrapFullscreenState(wrapEl, false);
+      }
+    } catch (e) {
+      setWrapFullscreenState(wrapEl, !active);
+    }
+    window.setTimeout(() => {
+      ensureNavViewportVisible(true);
+      drawEditorCanvas();
+      refreshViewportUI();
+    }, 50);
+  }
+
+  function updateFullscreenButtons() {
+    [
+      { wrapId: "trackCanvasWrap", btnId: "btnTrackFullscreen" },
+      { wrapId: "editorCanvasWrap", btnId: "btnEditorFullscreen" }
+    ].forEach(({ wrapId, btnId }) => {
+      const btn = $(btnId);
+      const wrapEl = $(wrapId);
+      if (!btn || !wrapEl) return;
+      btn.textContent = isWrapFullscreen(wrapEl) ? "結束全螢幕" : "全螢幕";
+    });
   }
 
   function attachViewportHandlers(wrapEl, canvasEl, viewport, type) {
@@ -921,6 +1157,7 @@
       const delta = evt.deltaY < 0 ? 1.08 : 0.92;
       viewport.scale *= delta;
       clampViewport(viewport);
+      markViewportManual(viewport);
       refreshViewportUI();
     }, { passive: false });
 
@@ -944,6 +1181,7 @@
       viewport.panX = gesture.startPanX + (evt.clientX - gesture.startX);
       viewport.panY = gesture.startPanY + (evt.clientY - gesture.startY);
       clampViewport(viewport);
+      markViewportManual(viewport);
       refreshViewportUI();
     });
 
@@ -974,6 +1212,7 @@
         const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         viewport.scale = touchInfo.startScale * (distance / Math.max(touchInfo.startDistance, 1));
         clampViewport(viewport);
+        markViewportManual(viewport);
         refreshViewportUI();
       }
     }, { passive: false });
@@ -985,6 +1224,7 @@
         viewport.panY = 0;
       }
       clampViewport(viewport);
+      markViewportManual(viewport);
       refreshViewportUI();
     });
   }
@@ -1001,6 +1241,22 @@
         <button id="btnGpsFusionCorrection" class="secondary">以 GPS 柔性校正</button>
       `;
       navBtnRow.parentNode.insertBefore(extra, navBtnRow.nextSibling);
+    }
+
+    const navWrap = $("trackCanvasWrap");
+    if (navWrap && !$("btnTrackFullscreen")) {
+      const action = document.createElement("div");
+      action.className = "map-overlay map-action-group";
+      action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button>`;
+      navWrap.appendChild(action);
+    }
+
+    const editorWrap = $("editorCanvasWrap");
+    if (editorWrap && !$("btnEditorFullscreen")) {
+      const action = document.createElement("div");
+      action.className = "map-overlay map-action-group";
+      action.innerHTML = `<button id="btnEditorFullscreen" class="map-action-btn" type="button">全螢幕</button>`;
+      editorWrap.appendChild(action);
     }
 
     const mapControls = $("btnEditorClear")?.parentElement;
@@ -3086,6 +3342,7 @@
     renderCorrections();
     updateAnchorCorrectionSelect();
     updateAutoStepStatus();
+    ensureNavViewportVisible(false);
     drawTrack();
     drawEditorCanvas();
     renderMapElements();
@@ -3857,6 +4114,20 @@
   injectEnhancementUI();
   attachViewportHandlers($("trackCanvasWrap"), $("trackCanvas"), state.navViewport, "nav");
   attachViewportHandlers($("editorCanvasWrap"), $("editorCanvas"), state.editorViewport, "editor");
+  $("btnTrackFullscreen")?.addEventListener("click", () => toggleWrapFullscreen("trackCanvasWrap"));
+  $("btnEditorFullscreen")?.addEventListener("click", () => toggleWrapFullscreen("editorCanvasWrap"));
+  document.addEventListener("fullscreenchange", () => {
+    ensureNavViewportVisible(true);
+    refreshViewportUI();
+  });
+  document.addEventListener("webkitfullscreenchange", () => {
+    ensureNavViewportVisible(true);
+    refreshViewportUI();
+  });
+  window.addEventListener("resize", () => {
+    ensureNavViewportVisible(true);
+    refreshViewportUI();
+  });
   $("btnGpsAnchorCreate")?.addEventListener("click", createSavedAnchorFromGps);
   $("btnUseGpsForDraftAnchor")?.addEventListener("click", createAnchorFromGpsDraft);
   $("btnAnchorCorrection")?.addEventListener("click", () => applyAnchorCorrection($("anchorCorrectionSelect")?.value));
