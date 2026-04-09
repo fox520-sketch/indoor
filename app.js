@@ -43,8 +43,11 @@
     qrScanMode: false,
     qrStream: null,
     savedAnchors: [],
+    navTrackPoints: [],
+    selectedNavTrackPointId: "",
     highlightAnchorId: "",
     lastPoseAnchorCreateAt: 0,
+    lastNavCanvasDragAt: 0,
     showAnchorOverlay: true,
     navTargetId: "",
     routeMode: "direct",
@@ -224,6 +227,7 @@
     const pose = latestPose();
     addPoint(pose.x, pose.y);
     state.savedAnchors.forEach((a) => addPoint(a.x, a.y));
+    state.navTrackPoints.forEach((p) => addPoint(p.x, p.y));
     state.plannedRoutePoints.forEach((p) => addPoint(p.x, p.y));
     state.mapElements.forEach((el) => {
       if (el.type === "point") {
@@ -358,7 +362,8 @@
         startX: evt.clientX,
         startY: evt.clientY,
         startPanX: viewport.panX,
-        startPanY: viewport.panY
+        startPanY: viewport.panY,
+        moved: false
       };
       if (type === "nav") navCanvasGesture = gesture;
       else editorCanvasGesture = gesture;
@@ -367,8 +372,14 @@
     wrapEl.addEventListener("pointermove", (evt) => {
       const gesture = type === "nav" ? navCanvasGesture : editorCanvasGesture;
       if (!gesture || gesture.pointerId !== evt.pointerId) return;
-      viewport.panX = gesture.startPanX + (evt.clientX - gesture.startX);
-      viewport.panY = gesture.startPanY + (evt.clientY - gesture.startY);
+      const dx = evt.clientX - gesture.startX;
+      const dy = evt.clientY - gesture.startY;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        gesture.moved = true;
+        if (type === "nav") state.lastNavCanvasDragAt = Date.now();
+      }
+      viewport.panX = gesture.startPanX + dx;
+      viewport.panY = gesture.startPanY + dy;
       clampViewport(viewport);
       markViewportManual(viewport);
       refreshViewportUI();
@@ -425,8 +436,6 @@
       extra.className = "btns";
       extra.style.marginTop = "10px";
       extra.innerHTML = `
-        <button id="btnGpsAnchorCreate" class="secondary" type="button">以 GPS 新增標定點</button>
-        <button id="btnPoseAnchorCreate" class="secondary" type="button">以目前位置新增標定點</button>
         <button id="btnAnchorCorrection" class="secondary" type="button">以標定點校正目前位置</button>
         <button id="btnGpsFusionCorrection" class="secondary" type="button">以 GPS 柔性校正</button>
       `;
@@ -848,6 +857,124 @@
     return "GPS偏弱";
   }
 
+
+  function loadNavTrackPoints() {
+    try {
+      const raw = localStorage.getItem("indoor_nav_track_points");
+      const parsed = raw ? JSON.parse(raw) : [];
+      state.navTrackPoints = Array.isArray(parsed) ? parsed.map((p, idx) => normalizeNavTrackPoint(p, idx)).filter(Boolean) : [];
+    } catch (e) {
+      state.navTrackPoints = [];
+    }
+  }
+
+  function persistNavTrackPoints() {
+    localStorage.setItem("indoor_nav_track_points", JSON.stringify(state.navTrackPoints));
+  }
+
+  function normalizeNavTrackPoint(p, idx = 0) {
+    const x = Number(p?.x ?? 0);
+    const y = Number(p?.y ?? 0);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return {
+      id: p?.id || ((crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + idx)),
+      name: p?.name || `軌跡點 ${idx + 1}`,
+      x: Number(x.toFixed(2)),
+      y: Number(y.toFixed(2)),
+      createdAt: p?.createdAt || new Date().toISOString()
+    };
+  }
+
+  function navCanvasWorldFromEvent(evt) {
+    const wrap = $("trackCanvasWrap");
+    const canvas = $("trackCanvas");
+    if (!wrap || !canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const local = {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top
+    };
+    return viewportScreenToWorld(local, state.navViewport, wrap);
+  }
+
+  function findNavTrackPointNear(world, toleranceMeters = 1.2) {
+    let best = null;
+    let bestDist = Infinity;
+    state.navTrackPoints.forEach((p) => {
+      const d = distanceBetween(world, p);
+      if (d <= toleranceMeters && d < bestDist) {
+        best = p;
+        bestDist = d;
+      }
+    });
+    return best;
+  }
+
+  function cumulativeTrailDistances() {
+    const out = [0];
+    for (let i = 1; i < state.trail.length; i++) {
+      out[i] = out[i - 1] + distanceBetween(state.trail[i - 1], state.trail[i]);
+    }
+    return out;
+  }
+
+  function trajectoryDistanceFromStartToPoint(point) {
+    if (!point || !state.trail.length) return 0;
+    const cum = cumulativeTrailDistances();
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    state.trail.forEach((p, idx) => {
+      const d = distanceBetween(point, p);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = idx;
+      }
+    });
+    return cum[bestIdx] || 0;
+  }
+
+  function showNavTrackPointInfo(point) {
+    if (!point) return;
+    const trajDist = trajectoryDistanceFromStartToPoint(point);
+    state.selectedNavTrackPointId = point.id;
+    setMessage(`軌跡點「${point.name}」：座標 (${fmt(point.x, 2)}, ${fmt(point.y, 2)}) m，距起點軌跡距離 ${fmt(trajDist, 1)} m。起點座標為 (0,0) m。`);
+    render();
+  }
+
+  function addNavTrackPointAt(world) {
+    const defaultName = `軌跡點 ${state.navTrackPoints.length + 1}`;
+    const name = (window.prompt("請輸入軌跡點名稱", defaultName) || "").trim();
+    if (!name) {
+      setMessage("已取消新增軌跡點。");
+      return;
+    }
+    const point = {
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
+      name,
+      x: Number(Number(world.x || 0).toFixed(2)),
+      y: Number(Number(world.y || 0).toFixed(2)),
+      createdAt: new Date().toISOString()
+    };
+    state.navTrackPoints.unshift(point);
+    state.selectedNavTrackPointId = point.id;
+    persistNavTrackPoints();
+    if (state.navAutoFit) ensureNavViewportVisible(true);
+    const trajDist = trajectoryDistanceFromStartToPoint(point);
+    setMessage(`已新增軌跡點「${point.name}」：座標 (${fmt(point.x, 2)}, ${fmt(point.y, 2)}) m，距起點軌跡距離 ${fmt(trajDist, 1)} m。`);
+    render();
+  }
+
+  function handleNavCanvasClick(evt) {
+    if (Date.now() - (state.lastNavCanvasDragAt || 0) < 250) return;
+    const world = navCanvasWorldFromEvent(evt);
+    const existing = findNavTrackPointNear(world);
+    if (existing) {
+      showNavTrackPointInfo(existing);
+      return;
+    }
+    addNavTrackPointAt(world);
+  }
+
   function renderCorrections() {
     const box = $("correctionList");
     if (!state.corrections.length) {
@@ -1049,6 +1176,24 @@
       else ctx.lineTo(pt.x, pt.y);
     });
     ctx.stroke();
+
+
+    if (state.navTrackPoints.length) {
+      state.navTrackPoints.forEach((p) => {
+        const pt = viewportWorldToScreen(p, state.navViewport, wrapEl);
+        const isSelected = p.id === state.selectedNavTrackPointId;
+        ctx.fillStyle = isSelected ? "#f97316" : "#fb923c";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, fixedRadius(isSelected ? 8 : 6), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = isSelected ? "#9a3412" : "#c2410c";
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, fixedRadius(isSelected ? 13 : 10), 0, Math.PI * 2);
+        ctx.stroke();
+        labelBox(ctx, pt.x + 10, pt.y - 10, p.name || "軌跡點", isSelected ? "#9a3412" : "#c2410c");
+      });
+    }
 
     const start = state.trail[0];
     const last = latestPose();
@@ -2936,7 +3081,7 @@
       () => {},
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
     );
-    setMessage("開始追蹤。現在會嘗試用加速度峰值偵測步伐來推進軌跡，並可在 GPS 較佳時做手動校正。");
+    setMessage("開始追蹤。現在可直接點導航地圖新增軌跡點；點已存在的軌跡點可查看座標與距起點軌跡距離。");
     render();
   }
 
@@ -3563,6 +3708,7 @@
   injectEnhancementUI();
   attachViewportHandlers($("trackCanvasWrap"), $("trackCanvas"), state.navViewport, "nav");
   attachViewportHandlers($("editorCanvasWrap"), $("editorCanvas"), state.editorViewport, "editor");
+  $("trackCanvas")?.addEventListener("click", handleNavCanvasClick);
   $("btnTrackFullscreen")?.addEventListener("click", () => toggleWrapFullscreen("trackCanvasWrap"));
   $("btnNavAutoFit")?.addEventListener("click", () => {
     state.navAutoFit = !state.navAutoFit;
@@ -3586,16 +3732,7 @@
     ensureNavViewportVisible(state.navAutoFit);
     refreshViewportUI();
   });
-  $("btnGpsAnchorCreate")?.addEventListener("click", createSavedAnchorFromGps);
-  $("btnPoseAnchorCreate")?.addEventListener("click", triggerCreateAnchorFromCurrentPose);
-  document.addEventListener("click", (e) => {
-    const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
-    if (target) {
-      e.preventDefault();
-      triggerCreateAnchorFromCurrentPose();
-    }
-  });
-
+    
 
   document.addEventListener("touchend", (e) => {
     const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
@@ -3634,6 +3771,7 @@
 
   generateQr();
   loadSavedAnchors();
+  loadNavTrackPoints();
   loadNavHistory();
   loadMapElements();
   render();
