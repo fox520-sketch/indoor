@@ -44,6 +44,7 @@
     qrStream: null,
     savedAnchors: [],
     highlightAnchorId: "",
+    lastPoseAnchorCreateAt: 0,
     showAnchorOverlay: true,
     navTargetId: "",
     routeMode: "direct",
@@ -581,6 +582,13 @@
     render();
   }
 
+  function triggerCreateAnchorFromCurrentPose() {
+    const now = Date.now();
+    if (now - (state.lastPoseAnchorCreateAt || 0) < 700) return;
+    state.lastPoseAnchorCreateAt = now;
+    createAnchorFromCurrentPose();
+  }
+
   function createAnchorFromCurrentPose() {
     const pose = latestPose();
     const x = Number((pose?.x || 0).toFixed(2));
@@ -599,7 +607,21 @@
     state.savedAnchors.unshift(anchor);
     state.showAnchorOverlay = true;
     state.highlightAnchorId = anchor.id;
+
+    state.mapElements.unshift({
+      id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + 1),
+      type: "point",
+      name: anchor.name,
+      x,
+      y,
+      semantic: "landmark",
+      source: "current-pose-anchor",
+      anchorId: anchor.id,
+      createdAt: new Date().toISOString()
+    });
+
     persistSavedAnchors();
+    persistMapElements();
     switchPage("navPage");
     if (typeof focusNavViewportOnWorldPoint === "function") {
       focusNavViewportOnWorldPoint({ x, y }, 1.15);
@@ -979,16 +1001,66 @@
 
     drawMapElementsOnCanvas(ctx, true, state.navViewport, wrapEl);
 
-    const currentPoseAnchors = [];
     if (state.showAnchorOverlay && state.savedAnchors.length) {
       ctx.font = "12px system-ui, sans-serif";
-      state.savedAnchors.forEach((a) => {
-        if (a?.source === "current-pose") {
-          currentPoseAnchors.push(a);
-          return;
-        }
+      state.savedAnchors.forEach((a, idx) => {
         const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
         const anchorColor = anchorDisplayColor(a);
+        const isCurrentPoseAnchor = a?.source === "current-pose";
+
+        if (isCurrentPoseAnchor) {
+          ctx.save();
+          ctx.strokeStyle = anchorColor;
+          ctx.fillStyle = anchorColor;
+          ctx.lineWidth = state.highlightAnchorId === a.id ? 5 : 3;
+
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, fixedRadius(14), 0, Math.PI * 2);
+          ctx.stroke();
+
+          if (state.highlightAnchorId === a.id) {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, fixedRadius(22), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          const diamondR = fixedRadius(9);
+          ctx.beginPath();
+          ctx.moveTo(pt.x, pt.y - diamondR);
+          ctx.lineTo(pt.x + diamondR, pt.y);
+          ctx.lineTo(pt.x, pt.y + diamondR);
+          ctx.lineTo(pt.x - diamondR, pt.y);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, fixedRadius(4), 0, Math.PI * 2);
+          ctx.fill();
+
+          if (a.heading != null && Number.isFinite(Number(a.heading))) {
+            const rad = (Number(a.heading) * Math.PI) / 180;
+            ctx.strokeStyle = anchorColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(pt.x, pt.y);
+            ctx.lineTo(pt.x + Math.sin(rad) * 18, pt.y - Math.cos(rad) * 18);
+            ctx.stroke();
+          }
+
+          const calloutX = pt.x + 28 + Math.min(idx, 2) * 14;
+          const calloutY = pt.y - 28 - Math.min(idx, 2) * 10;
+          ctx.strokeStyle = anchorColor;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(pt.x + diamondR * 0.7, pt.y - diamondR * 0.7);
+          ctx.lineTo(calloutX - 8, calloutY + 8);
+          ctx.stroke();
+          labelBox(ctx, calloutX, calloutY, a.name || "目前位置標定點", anchorLabelColor(a));
+          ctx.restore();
+          return;
+        }
+
         ctx.fillStyle = anchorColor;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, fixedRadius(6), 0, Math.PI * 2);
@@ -1094,64 +1166,6 @@
     ctx.arc(lastPt.x, lastPt.y, fixedRadius(8), 0, Math.PI * 2);
     ctx.fill();
 
-    if (currentPoseAnchors.length) {
-      currentPoseAnchors.forEach((a, idx) => {
-        const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.navViewport, wrapEl);
-        const color = anchorDisplayColor(a);
-        const ringRadius = fixedRadius(14 + Math.min(idx, 2) * 4);
-
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.fillStyle = color;
-        ctx.lineWidth = state.highlightAnchorId === a.id ? 5 : 3;
-
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        if (state.highlightAnchorId === a.id) {
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, fixedRadius(22 + Math.min(idx, 2) * 4), 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        const diamondR = fixedRadius(9);
-        ctx.beginPath();
-        ctx.moveTo(pt.x, pt.y - diamondR);
-        ctx.lineTo(pt.x + diamondR, pt.y);
-        ctx.lineTo(pt.x, pt.y + diamondR);
-        ctx.lineTo(pt.x - diamondR, pt.y);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, fixedRadius(4), 0, Math.PI * 2);
-        ctx.fill();
-
-        if (a.heading != null && Number.isFinite(Number(a.heading))) {
-          const rad = (Number(a.heading) * Math.PI) / 180;
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(pt.x, pt.y);
-          ctx.lineTo(pt.x + Math.sin(rad) * 18, pt.y - Math.cos(rad) * 18);
-          ctx.stroke();
-        }
-
-        const calloutX = pt.x + 28 + Math.min(idx, 2) * 14;
-        const calloutY = pt.y - 28 - Math.min(idx, 2) * 10;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(pt.x + diamondR * 0.7, pt.y - diamondR * 0.7);
-        ctx.lineTo(calloutX - 8, calloutY + 8);
-        ctx.stroke();
-
-        labelBox(ctx, calloutX, calloutY, a.name || "目前位置標定點", anchorLabelColor(a));
-        ctx.restore();
-      });
-    }
   }
 
 
@@ -3564,15 +3578,31 @@
     refreshViewportUI();
   });
   $("btnGpsAnchorCreate")?.addEventListener("click", createSavedAnchorFromGps);
-  $("btnPoseAnchorCreate")?.addEventListener("click", createAnchorFromCurrentPose);
+  $("btnPoseAnchorCreate")?.addEventListener("click", triggerCreateAnchorFromCurrentPose);
   document.addEventListener("click", (e) => {
     const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
     if (target) {
       e.preventDefault();
-      createAnchorFromCurrentPose();
+      triggerCreateAnchorFromCurrentPose();
     }
   });
 
+
+  document.addEventListener("touchend", (e) => {
+    const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
+    if (target) {
+      e.preventDefault();
+      triggerCreateAnchorFromCurrentPose();
+    }
+  }, { passive: false });
+
+  document.addEventListener("pointerup", (e) => {
+    const target = e.target && e.target.closest ? e.target.closest("#btnPoseAnchorCreate") : null;
+    if (target) {
+      e.preventDefault();
+      triggerCreateAnchorFromCurrentPose();
+    }
+  });
   $("btnUseGpsForDraftAnchor")?.addEventListener("click", createAnchorFromGpsDraft);
   $("btnAnchorCorrection")?.addEventListener("click", () => applyAnchorCorrection($("anchorCorrectionSelect")?.value));
   $("btnGpsFusionCorrection")?.addEventListener("click", async () => {
