@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v24 build marker -->
 <!-- v23 build marker -->
 <!-- v22 build marker -->
 <!-- v21b build marker -->
@@ -1861,45 +1862,61 @@
     const heading = movementHeadingDegrees();
     const speed = currentSegmentSpeedMps();
     const avgSpeed = averageTrailSpeedMps();
+    const rect = getWrapRect(wrapEl);
 
-    const lines = [
-      `軌跡資訊面板 v23`,
-      `移動距離：${formatScaleMeters(totalDist)}`,
-      `移動方向：${headingToText(heading)} (${heading.toFixed(0)}°)`,
-      `移動速度：${formatSpeed(speed)}`,
-      `平均移動速度：${formatSpeed(avgSpeed)}`,
-      `距離起點距離：${formatScaleMeters(startDist)}`,
-      `目前位置座標：(${fmt(pose.x, 2)}, ${fmt(pose.y, 2)})`
-    ];
+    const row1 = `距離起點 ${formatScaleMeters(startDist)}   速度 ${formatSpeed(speed)}`;
+    const row2 = `方向 ${headingToText(heading)} (${heading.toFixed(0)}°)   平均 ${formatSpeed(avgSpeed)}`;
+    const row3 = `移動距離 ${formatScaleMeters(totalDist)}`;
 
-    const paddingX = 12;
-    const paddingY = 10;
-    const lineH = 18;
     const boxX = 16;
-    const boxY = 16;
-    const boxW = 290;
-    const boxH = paddingY * 2 + lines.length * lineH;
+    const boxY = 14;
+    const boxW = Math.min(300, rect.width - 110);
+    const boxH = 72;
 
     ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
     ctx.strokeStyle = "#cbd5e1";
     ctx.lineWidth = 1;
     if (typeof ctx.roundRect === "function") {
       ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxW, boxH, 12);
+      ctx.roundRect(boxX, boxY, boxW, boxH, 14);
       ctx.fill();
       ctx.stroke();
     } else {
       ctx.fillRect(boxX, boxY, boxW, boxH);
       ctx.strokeRect(boxX, boxY, boxW, boxH);
     }
+
     ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 12px system-ui, sans-serif";
+    ctx.fillText(row1, boxX + 12, boxY + 22);
     ctx.font = "12px system-ui, sans-serif";
-    lines.forEach((line, i) => {
-      ctx.fillText(line, boxX + paddingX, boxY + paddingY + 13 + i * lineH);
-    });
+    ctx.fillText(row2, boxX + 12, boxY + 42);
+    ctx.fillText(row3, boxX + 12, boxY + 61);
+
+    const coordText = `(${fmt(pose.x, 2)}, ${fmt(pose.y, 2)})`;
+    const chipW = 120;
+    const chipH = 28;
+    const chipX = rect.width - chipW - 86;
+    const chipY = 18;
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.strokeStyle = "#cbd5e1";
+    if (typeof ctx.roundRect === "function") {
+      ctx.beginPath();
+      ctx.roundRect(chipX, chipY, chipW, chipH, 999);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(chipX, chipY, chipW, chipH);
+      ctx.strokeRect(chipX, chipY, chipW, chipH);
+    }
+    ctx.fillStyle = "#334155";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(coordText, chipX + 12, chipY + 18);
+
     ctx.restore();
   }
+
 
   function drawTrack() {
     const wrapEl = $("trackCanvasWrap");
@@ -2016,7 +2033,6 @@
     ctx.fill();
 
     drawScaleRuler(ctx, wrapEl, state.navViewport, "bottom-left");
-    drawStartToCurrentDistanceBadge(ctx, wrapEl, state.navViewport, "起點→目前位置");
   }
 
 
