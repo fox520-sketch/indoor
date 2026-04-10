@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v21b build marker -->
+<!-- v21 build marker -->
 <!-- v20 build marker -->
 <!-- v19 build marker -->
 <!-- v17 build marker -->
@@ -1907,6 +1909,9 @@
     ctx.beginPath();
     ctx.arc(lastPt.x, lastPt.y, fixedRadius(8), 0, Math.PI * 2);
     ctx.fill();
+
+    drawScaleRuler(ctx, wrapEl, state.navViewport, "bottom-left");
+    drawStartToCurrentDistanceBadge(ctx, wrapEl, state.navViewport, "起點→目前位置");
   }
 
 
