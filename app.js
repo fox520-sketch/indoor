@@ -1,3 +1,4 @@
+// v27 build marker
 // v26 build marker
 // v25b build marker
 // v25 build marker
@@ -42,6 +43,8 @@
     headingSamples: [],
     trail: [{ x: 0, y: 0, heading: 0, t: Date.now() }],
     currentPose: { x: 0, y: 0, heading: 0 },
+    filteredPose: { x: 0, y: 0, heading: 0 },
+    poseSmoothingAlpha: 0.22,
     corrections: [],
     stepCount: 0,
     stepLength: DEFAULT_STEP_METERS,
@@ -799,7 +802,31 @@
   }
 
   function latestPose() {
+    return state.filteredPose || state.trail[state.trail.length - 1] || state.currentPose;
+  }
+
+  function rawLatestPose() {
     return state.trail[state.trail.length - 1] || state.currentPose;
+  }
+
+  function smoothAngleDeg(prev, next, alpha) {
+    const d = angleDelta(next, prev);
+    return normalizeAngle(prev + d * alpha);
+  }
+
+  function updateFilteredPose() {
+    const raw = rawLatestPose();
+    if (!raw) return;
+    const prev = state.filteredPose || { x: raw.x || 0, y: raw.y || 0, heading: raw.heading || 0 };
+    const alpha = Math.max(0.05, Math.min(0.9, Number(state.poseSmoothingAlpha || 0.22)));
+    const filtered = {
+      x: Number(prev.x || 0) + (Number(raw.x || 0) - Number(prev.x || 0)) * alpha,
+      y: Number(prev.y || 0) + (Number(raw.y || 0) - Number(prev.y || 0)) * alpha,
+      heading: smoothAngleDeg(Number(prev.heading || 0), Number(raw.heading || 0), alpha),
+      t: raw.t || Date.now()
+    };
+    state.filteredPose = filtered;
+    return filtered;
   }
 
   function setMessage(msg) {
@@ -1264,6 +1291,7 @@
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
     ensureCanvasSize(canvas, wrapEl);
+    updateFilteredPose();
     updateNavTelemetryDom();
     const rect = getWrapRect(wrapEl);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2342,6 +2370,7 @@
     const wrapEl = $("editorCanvasWrap");
     if (!canvas || !wrapEl) return;
     ensureCanvasSize(canvas, wrapEl);
+    updateFilteredPose();
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(ctx, wrapEl, state.editorViewport);
@@ -3281,6 +3310,7 @@
     stopTracking();
     state.trail = [{ x: 0, y: 0, heading: 0, t: Date.now() }];
     state.currentPose = { x: 0, y: 0, heading: 0 };
+    state.filteredPose = { x: 0, y: 0, heading: 0 };
     state.corrections = [];
     state.positionSamples = [];
     state.headingSamples = [];
