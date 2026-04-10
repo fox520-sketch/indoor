@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v22 build marker -->
 <!-- v21b build marker -->
 <!-- v21 build marker -->
 <!-- v20 build marker -->
@@ -1797,6 +1798,107 @@
     labelBox(ctx, rect.width - 220, 22, `${title}：${formatScaleMeters(dist)}`, "#7c2d12");
   }
 
+
+  function totalTrailDistance() {
+    if (!state.trail.length || state.trail.length < 2) return 0;
+    let total = 0;
+    for (let i = 1; i < state.trail.length; i++) {
+      total += distanceBetween(state.trail[i - 1], state.trail[i]);
+    }
+    return total;
+  }
+
+  function currentSegmentSpeedMps() {
+    if (!state.trail.length || state.trail.length < 2) return 0;
+    const last = state.trail[state.trail.length - 1];
+    const prev = state.trail[state.trail.length - 2];
+    const dt = Math.max(((Number(last.t || 0) - Number(prev.t || 0)) / 1000), 0.001);
+    return distanceBetween(prev, last) / dt;
+  }
+
+  function averageTrailSpeedMps() {
+    if (!state.trail.length || state.trail.length < 2) return 0;
+    const first = state.trail[0];
+    const last = state.trail[state.trail.length - 1];
+    const dt = Math.max(((Number(last.t || 0) - Number(first.t || 0)) / 1000), 0.001);
+    return totalTrailDistance() / dt;
+  }
+
+  function movementHeadingDegrees() {
+    if (!state.trail.length || state.trail.length < 2) return latestPose().heading || 0;
+    const last = state.trail[state.trail.length - 1];
+    const prev = state.trail[state.trail.length - 2];
+    const dx = Number(last.x || 0) - Number(prev.x || 0);
+    const dy = Number(last.y || 0) - Number(prev.y || 0);
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return latestPose().heading || 0;
+    return normalizeAngle((Math.atan2(dx, -dy) * 180) / Math.PI);
+  }
+
+  function headingToText(deg) {
+    const a = normalizeAngle(deg || 0);
+    if (a >= 337.5 || a < 22.5) return "北";
+    if (a < 67.5) return "東北";
+    if (a < 112.5) return "東";
+    if (a < 157.5) return "東南";
+    if (a < 202.5) return "南";
+    if (a < 247.5) return "西南";
+    if (a < 292.5) return "西";
+    return "西北";
+  }
+
+  function formatSpeed(mps) {
+    const v = Number(mps || 0);
+    if (!Number.isFinite(v) || v <= 0) return "0.00 m/s";
+    return `${v.toFixed(2)} m/s`;
+  }
+
+  function drawNavTelemetryPanel(ctx, wrapEl, viewport) {
+    if (!state.trail.length) return;
+    const pose = latestPose();
+    const totalDist = totalTrailDistance();
+    const startDist = currentStartToPoseDistance();
+    const heading = movementHeadingDegrees();
+    const speed = currentSegmentSpeedMps();
+    const avgSpeed = averageTrailSpeedMps();
+
+    const lines = [
+      `移動距離：${formatScaleMeters(totalDist)}`,
+      `移動方向：${headingToText(heading)} (${heading.toFixed(0)}°)`,
+      `移動速度：${formatSpeed(speed)}`,
+      `平均移動速度：${formatSpeed(avgSpeed)}`,
+      `距離起點距離：${formatScaleMeters(startDist)}`,
+      `目前位置座標：(${fmt(pose.x, 2)}, ${fmt(pose.y, 2)})`
+    ];
+
+    const paddingX = 12;
+    const paddingY = 10;
+    const lineH = 18;
+    const boxX = 16;
+    const boxY = 16;
+    const boxW = 270;
+    const boxH = paddingY * 2 + lines.length * lineH;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1;
+    if (typeof ctx.roundRect === "function") {
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 12);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+    }
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "12px system-ui, sans-serif";
+    lines.forEach((line, i) => {
+      ctx.fillText(line, boxX + paddingX, boxY + paddingY + 13 + i * lineH);
+    });
+    ctx.restore();
+  }
+
   function drawTrack() {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
@@ -1805,6 +1907,7 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(ctx, wrapEl, state.navViewport);
     drawCrosshair(ctx, wrapEl, state.navViewport);
+    drawNavTelemetryPanel(ctx, wrapEl, state.navViewport);
 
     drawMapElementsOnCanvas(ctx, true, state.navViewport, wrapEl);
 
