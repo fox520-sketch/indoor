@@ -1,3 +1,4 @@
+// v26 build marker
 // v25b build marker
 // v25 build marker
 // v24 build marker
@@ -1232,6 +1233,33 @@
     setText("navCoordChip", coordText);
   }
 
+
+  function getSmoothedTrail(points, windowSize = 2) {
+    if (!Array.isArray(points) || points.length <= 2) return points || [];
+    const out = points.map((p) => ({ ...p }));
+    for (let i = 1; i < points.length - 1; i++) {
+      let sumX = 0;
+      let sumY = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - windowSize); j <= Math.min(points.length - 1, i + windowSize); j++) {
+        sumX += Number(points[j].x || 0);
+        sumY += Number(points[j].y || 0);
+        count += 1;
+      }
+      out[i].x = sumX / Math.max(count, 1);
+      out[i].y = sumY / Math.max(count, 1);
+    }
+    out[0].x = Number(points[0].x || 0);
+    out[0].y = Number(points[0].y || 0);
+    out[out.length - 1].x = Number(points[points.length - 1].x || 0);
+    out[out.length - 1].y = Number(points[points.length - 1].y || 0);
+    return out;
+  }
+
+  function getDisplayTrail() {
+    return getSmoothedTrail(state.trail, 2);
+  }
+
   function drawTrack() {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
@@ -1284,10 +1312,13 @@
 
     if (!state.trail.length) return;
 
+    const displayTrail = getDisplayTrail();
     ctx.strokeStyle = "#0f172a";
     ctx.lineWidth = lineWidthForWorld(3, state.navViewport);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
     ctx.beginPath();
-    state.trail.forEach((p, i) => {
+    displayTrail.forEach((p, i) => {
       const pt = viewportWorldToScreen(p, state.navViewport, wrapEl);
       if (i === 0) ctx.moveTo(pt.x, pt.y);
       else ctx.lineTo(pt.x, pt.y);
@@ -2320,10 +2351,13 @@
     drawMapElementsOnCanvas(ctx, true, state.editorViewport, wrapEl);
 
     if (state.trail.length) {
+      const displayTrail = getDisplayTrail();
       ctx.strokeStyle = "#0f172a";
       ctx.lineWidth = lineWidthForWorld(3, state.editorViewport);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
       ctx.beginPath();
-      state.trail.forEach((p, i) => {
+      displayTrail.forEach((p, i) => {
         const pt = viewportWorldToScreen({ x: Number(p.x || 0), y: Number(p.y || 0) }, state.editorViewport, wrapEl);
         if (i === 0) ctx.moveTo(pt.x, pt.y);
         else ctx.lineTo(pt.x, pt.y);
