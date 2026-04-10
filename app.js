@@ -1,3 +1,4 @@
+// v16 build marker
 
 (() => {
   const SAMPLE_MS = 250;
@@ -13,7 +14,7 @@
   const CENTER = TRACK_SIZE / 2;
   const DEFAULT_CANVAS_SCALE = 1;
   const DEFAULT_VIEW_SCALE = 1;
-  const MIN_VIEW_SCALE = 0.01;
+  const MIN_VIEW_SCALE = 0.01; // v16
   const MAX_VIEW_SCALE = 4.8;
   const DEFAULT_WORLD_SCALE = 8;
 
