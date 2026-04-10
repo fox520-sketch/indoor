@@ -1,3 +1,4 @@
+// v23 build marker
 // v22 build marker
 // v21 build marker
 // v20 build marker
@@ -1201,6 +1202,7 @@
     const avgSpeed = averageTrailSpeedMps();
 
     const lines = [
+      `軌跡資訊面板 v23`,
       `移動距離：${formatScaleMeters(totalDist)}`,
       `移動方向：${headingToText(heading)} (${heading.toFixed(0)}°)`,
       `移動速度：${formatSpeed(speed)}`,
@@ -1214,7 +1216,7 @@
     const lineH = 18;
     const boxX = 16;
     const boxY = 16;
-    const boxW = 270;
+    const boxW = 290;
     const boxH = paddingY * 2 + lines.length * lineH;
 
     ctx.save();
