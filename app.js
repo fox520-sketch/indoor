@@ -2163,6 +2163,35 @@
 
     drawMapElementsOnCanvas(ctx, true, state.editorViewport, wrapEl);
 
+    if (state.trail.length) {
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = lineWidthForWorld(3, state.editorViewport);
+      ctx.beginPath();
+      state.trail.forEach((p, i) => {
+        const pt = viewportWorldToScreen({ x: Number(p.x || 0), y: Number(p.y || 0) }, state.editorViewport, wrapEl);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.stroke();
+
+      const start = state.trail[0];
+      const last = latestPose();
+
+      const startPt = viewportWorldToScreen({ x: Number(start.x || 0), y: Number(start.y || 0) }, state.editorViewport, wrapEl);
+      ctx.fillStyle = "#16a34a";
+      ctx.beginPath();
+      ctx.arc(startPt.x, startPt.y, fixedRadius(8), 0, Math.PI * 2);
+      ctx.fill();
+      labelBox(ctx, startPt.x + 10, startPt.y - 10, "起點", "#166534");
+
+      const lastPt = viewportWorldToScreen({ x: Number(last.x || 0), y: Number(last.y || 0) }, state.editorViewport, wrapEl);
+      ctx.fillStyle = "#dc2626";
+      ctx.beginPath();
+      ctx.arc(lastPt.x, lastPt.y, fixedRadius(8), 0, Math.PI * 2);
+      ctx.fill();
+      labelBox(ctx, lastPt.x + 10, lastPt.y - 10, "目前位置", "#991b1b");
+    }
+
     if (state.savedAnchors.length) {
       state.savedAnchors.forEach((a) => {
         const pt = viewportWorldToScreen({ x: Number(a.x || 0), y: Number(a.y || 0) }, state.editorViewport, wrapEl);
