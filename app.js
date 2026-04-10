@@ -1,3 +1,4 @@
+// v29 build marker
 // v28 build marker
 // v27 build marker
 // v26 build marker
@@ -1290,15 +1291,20 @@
   }
 
 
+  function smoothingLabel(alpha) {
+    const a = Number(alpha || 0);
+    if (a >= 0.30) return "靈敏";
+    if (a <= 0.15) return "穩定";
+    return "標準";
+  }
+
   function loadPoseSmoothingPreference() {
     try {
       const rawAlpha = localStorage.getItem("indoor_pose_smoothing_alpha");
-      const rawPreset = localStorage.getItem("indoor_pose_smoothing_preset");
       const alpha = Number(rawAlpha);
-      if (Number.isFinite(alpha) && alpha > 0 && alpha < 1) {
+      if (Number.isFinite(alpha) && alpha >= 0.05 && alpha <= 0.50) {
         state.poseSmoothingAlpha = alpha;
       }
-      if (rawPreset) state.poseSmoothingPreset = rawPreset;
     } catch (e) {}
     refreshSmoothingUi();
   }
@@ -1306,24 +1312,23 @@
   function persistPoseSmoothingPreference() {
     try {
       localStorage.setItem("indoor_pose_smoothing_alpha", String(state.poseSmoothingAlpha));
-      localStorage.setItem("indoor_pose_smoothing_preset", state.poseSmoothingPreset || "balanced");
     } catch (e) {}
   }
 
   function refreshSmoothingUi() {
-    [["smoothPresetResponsive","responsive"],["smoothPresetBalanced","balanced"],["smoothPresetStable","stable"]].forEach(([id, key]) => {
-      const el = $(id);
-      if (!el) return;
-      el.classList.toggle("active", state.poseSmoothingPreset === key);
-    });
+    const slider = $("smoothStrengthSlider");
+    const value = $("smoothStrengthValue");
+    if (slider) slider.value = String(Number(state.poseSmoothingAlpha || 0.22).toFixed(2));
+    if (value) value.textContent = `${smoothingLabel(state.poseSmoothingAlpha)} (${Number(state.poseSmoothingAlpha || 0.22).toFixed(2)})`;
   }
 
-  function setPoseSmoothingPreset(preset, alpha) {
-    state.poseSmoothingPreset = preset;
-    state.poseSmoothingAlpha = alpha;
+  function setPoseSmoothingAlpha(alpha) {
+    const next = Math.max(0.05, Math.min(0.50, Number(alpha || 0.22)));
+    state.poseSmoothingAlpha = next;
+    state.poseSmoothingPreset = smoothingLabel(next);
     persistPoseSmoothingPreference();
     refreshSmoothingUi();
-    setMessage(`已切換平滑強度：${preset === "responsive" ? "靈敏" : preset === "stable" ? "穩定" : "標準"}。`);
+    setMessage(`已調整平滑強度：${smoothingLabel(next)} (${next.toFixed(2)})。`);
     render();
   }
 
@@ -4008,9 +4013,16 @@
       setMessage("GPS 柔性校正失敗：" + e.message);
     }
   });
-    $("smoothPresetResponsive")?.addEventListener("click", () => setPoseSmoothingPreset("responsive", 0.35));
-  $("smoothPresetBalanced")?.addEventListener("click", () => setPoseSmoothingPreset("balanced", 0.22));
-  $("smoothPresetStable")?.addEventListener("click", () => setPoseSmoothingPreset("stable", 0.12));
+    $("smoothStrengthSlider")?.addEventListener("input", (e) => {
+    const alpha = Number(e.target.value || 0.22);
+    state.poseSmoothingAlpha = alpha;
+    state.poseSmoothingPreset = smoothingLabel(alpha);
+    refreshSmoothingUi();
+    render();
+  });
+  $("smoothStrengthSlider")?.addEventListener("change", (e) => {
+    setPoseSmoothingAlpha(Number(e.target.value || 0.22));
+  });
 
 $("btnEditorAnchor")?.addEventListener("click", () => {
     state.anchorCreationMode = true;

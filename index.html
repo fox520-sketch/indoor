@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v29 build marker -->
 <!-- v28 build marker -->
 <!-- v27 build marker -->
 <!-- v26 build marker -->
@@ -468,6 +469,36 @@
       border-color:var(--primary);
     }
 
+  
+    .smooth-slider-wrap{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin:8px 0 12px;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:rgba(255,255,255,0.92);
+      box-shadow:0 6px 14px rgba(15,23,42,0.05);
+      flex-wrap:wrap;
+    }
+    .smooth-slider-label{
+      color:var(--muted);
+      font-size:13px;
+      white-space:nowrap;
+    }
+    .smooth-slider{
+      flex:1 1 180px;
+      min-width:180px;
+    }
+    .smooth-slider-value{
+      min-width:90px;
+      text-align:right;
+      font-size:12px;
+      font-weight:700;
+      color:var(--text);
+    }
+
   </style>
 </head>
 <body>
@@ -538,11 +569,10 @@
 
             
           
-          <div class="smooth-control" id="smoothControl">
-            <span class="smooth-control-label">平滑強度</span>
-            <button type="button" class="smooth-chip" id="smoothPresetResponsive" data-smooth="0.35">靈敏</button>
-            <button type="button" class="smooth-chip active" id="smoothPresetBalanced" data-smooth="0.22">標準</button>
-            <button type="button" class="smooth-chip" id="smoothPresetStable" data-smooth="0.12">穩定</button>
+          <div class="smooth-slider-wrap" id="smoothControl">
+            <span class="smooth-slider-label">平滑強度</span>
+            <input id="smoothStrengthSlider" class="smooth-slider" type="range" min="0.05" max="0.50" step="0.01" value="0.22" />
+            <span class="smooth-slider-value" id="smoothStrengthValue">標準 (0.22)</span>
           </div>
 
           <div class="nav-stats-bar" id="navStatsBar">
@@ -2022,15 +2052,20 @@
   }
 
 
+  function smoothingLabel(alpha) {
+    const a = Number(alpha || 0);
+    if (a >= 0.30) return "靈敏";
+    if (a <= 0.15) return "穩定";
+    return "標準";
+  }
+
   function loadPoseSmoothingPreference() {
     try {
       const rawAlpha = localStorage.getItem("indoor_pose_smoothing_alpha");
-      const rawPreset = localStorage.getItem("indoor_pose_smoothing_preset");
       const alpha = Number(rawAlpha);
-      if (Number.isFinite(alpha) && alpha > 0 && alpha < 1) {
+      if (Number.isFinite(alpha) && alpha >= 0.05 && alpha <= 0.50) {
         state.poseSmoothingAlpha = alpha;
       }
-      if (rawPreset) state.poseSmoothingPreset = rawPreset;
     } catch (e) {}
     refreshSmoothingUi();
   }
@@ -2038,24 +2073,23 @@
   function persistPoseSmoothingPreference() {
     try {
       localStorage.setItem("indoor_pose_smoothing_alpha", String(state.poseSmoothingAlpha));
-      localStorage.setItem("indoor_pose_smoothing_preset", state.poseSmoothingPreset || "balanced");
     } catch (e) {}
   }
 
   function refreshSmoothingUi() {
-    [["smoothPresetResponsive","responsive"],["smoothPresetBalanced","balanced"],["smoothPresetStable","stable"]].forEach(([id, key]) => {
-      const el = $(id);
-      if (!el) return;
-      el.classList.toggle("active", state.poseSmoothingPreset === key);
-    });
+    const slider = $("smoothStrengthSlider");
+    const value = $("smoothStrengthValue");
+    if (slider) slider.value = String(Number(state.poseSmoothingAlpha || 0.22).toFixed(2));
+    if (value) value.textContent = `${smoothingLabel(state.poseSmoothingAlpha)} (${Number(state.poseSmoothingAlpha || 0.22).toFixed(2)})`;
   }
 
-  function setPoseSmoothingPreset(preset, alpha) {
-    state.poseSmoothingPreset = preset;
-    state.poseSmoothingAlpha = alpha;
+  function setPoseSmoothingAlpha(alpha) {
+    const next = Math.max(0.05, Math.min(0.50, Number(alpha || 0.22)));
+    state.poseSmoothingAlpha = next;
+    state.poseSmoothingPreset = smoothingLabel(next);
     persistPoseSmoothingPreference();
     refreshSmoothingUi();
-    setMessage(`已切換平滑強度：${preset === "responsive" ? "靈敏" : preset === "stable" ? "穩定" : "標準"}。`);
+    setMessage(`已調整平滑強度：${smoothingLabel(next)} (${next.toFixed(2)})。`);
     render();
   }
 
@@ -4652,9 +4686,16 @@
       setMessage("GPS 柔性校正失敗：" + e.message);
     }
   });
-    $("smoothPresetResponsive")?.addEventListener("click", () => setPoseSmoothingPreset("responsive", 0.35));
-  $("smoothPresetBalanced")?.addEventListener("click", () => setPoseSmoothingPreset("balanced", 0.22));
-  $("smoothPresetStable")?.addEventListener("click", () => setPoseSmoothingPreset("stable", 0.12));
+    $("smoothStrengthSlider")?.addEventListener("input", (e) => {
+    const alpha = Number(e.target.value || 0.22);
+    state.poseSmoothingAlpha = alpha;
+    state.poseSmoothingPreset = smoothingLabel(alpha);
+    refreshSmoothingUi();
+    render();
+  });
+  $("smoothStrengthSlider")?.addEventListener("change", (e) => {
+    setPoseSmoothingAlpha(Number(e.target.value || 0.22));
+  });
 
 $("btnEditorAnchor")?.addEventListener("click", () => {
     state.anchorCreationMode = true;
