@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v28 build marker -->
 <!-- v27 build marker -->
 <!-- v26 build marker -->
 <!-- v25b build marker -->
@@ -439,6 +440,34 @@
       box-shadow:0 6px 14px rgba(15,23,42,0.06);pointer-events:none;
     }
 
+  
+    .smooth-control{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      margin:8px 0 12px;
+      flex-wrap:wrap;
+    }
+    .smooth-control-label{
+      color:var(--muted);
+      font-size:13px;
+      margin-right:4px;
+    }
+    .smooth-chip{
+      border:1px solid var(--border);
+      background:#fff;
+      color:var(--text);
+      border-radius:999px;
+      padding:6px 12px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .smooth-chip.active{
+      background:var(--primary);
+      color:#fff;
+      border-color:var(--primary);
+    }
+
   </style>
 </head>
 <body>
@@ -508,6 +537,14 @@
             </div>
 
             
+          
+          <div class="smooth-control" id="smoothControl">
+            <span class="smooth-control-label">平滑強度</span>
+            <button type="button" class="smooth-chip" id="smoothPresetResponsive" data-smooth="0.35">靈敏</button>
+            <button type="button" class="smooth-chip active" id="smoothPresetBalanced" data-smooth="0.22">標準</button>
+            <button type="button" class="smooth-chip" id="smoothPresetStable" data-smooth="0.12">穩定</button>
+          </div>
+
           <div class="nav-stats-bar" id="navStatsBar">
             <div class="nav-stat"><span class="nav-stat-label">距離起點</span><span class="nav-stat-value" id="navStatStartDistance">0 m</span></div>
             <div class="nav-stat"><span class="nav-stat-label">目前速度</span><span class="nav-stat-value" id="navStatSpeed">0.00 m/s</span></div>
@@ -919,6 +956,7 @@
     currentPose: { x: 0, y: 0, heading: 0 },
     filteredPose: { x: 0, y: 0, heading: 0 },
     poseSmoothingAlpha: 0.22,
+    poseSmoothingPreset: "balanced",
     corrections: [],
     stepCount: 0,
     stepLength: DEFAULT_STEP_METERS,
@@ -1981,6 +2019,44 @@
 
   function getDisplayTrail() {
     return getSmoothedTrail(state.trail, 2);
+  }
+
+
+  function loadPoseSmoothingPreference() {
+    try {
+      const rawAlpha = localStorage.getItem("indoor_pose_smoothing_alpha");
+      const rawPreset = localStorage.getItem("indoor_pose_smoothing_preset");
+      const alpha = Number(rawAlpha);
+      if (Number.isFinite(alpha) && alpha > 0 && alpha < 1) {
+        state.poseSmoothingAlpha = alpha;
+      }
+      if (rawPreset) state.poseSmoothingPreset = rawPreset;
+    } catch (e) {}
+    refreshSmoothingUi();
+  }
+
+  function persistPoseSmoothingPreference() {
+    try {
+      localStorage.setItem("indoor_pose_smoothing_alpha", String(state.poseSmoothingAlpha));
+      localStorage.setItem("indoor_pose_smoothing_preset", state.poseSmoothingPreset || "balanced");
+    } catch (e) {}
+  }
+
+  function refreshSmoothingUi() {
+    [["smoothPresetResponsive","responsive"],["smoothPresetBalanced","balanced"],["smoothPresetStable","stable"]].forEach(([id, key]) => {
+      const el = $(id);
+      if (!el) return;
+      el.classList.toggle("active", state.poseSmoothingPreset === key);
+    });
+  }
+
+  function setPoseSmoothingPreset(preset, alpha) {
+    state.poseSmoothingPreset = preset;
+    state.poseSmoothingAlpha = alpha;
+    persistPoseSmoothingPreference();
+    refreshSmoothingUi();
+    setMessage(`已切換平滑強度：${preset === "responsive" ? "靈敏" : preset === "stable" ? "穩定" : "標準"}。`);
+    render();
   }
 
   function drawTrack() {
@@ -4576,7 +4652,11 @@
       setMessage("GPS 柔性校正失敗：" + e.message);
     }
   });
-  $("btnEditorAnchor")?.addEventListener("click", () => {
+    $("smoothPresetResponsive")?.addEventListener("click", () => setPoseSmoothingPreset("responsive", 0.35));
+  $("smoothPresetBalanced")?.addEventListener("click", () => setPoseSmoothingPreset("balanced", 0.22));
+  $("smoothPresetStable")?.addEventListener("click", () => setPoseSmoothingPreset("stable", 0.12));
+
+$("btnEditorAnchor")?.addEventListener("click", () => {
     state.anchorCreationMode = true;
     setEditorMode("point");
     setEditorMessage("標定點模式：在地圖上點一下直接新增標定點。");

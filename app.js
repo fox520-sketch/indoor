@@ -1,3 +1,4 @@
+// v28 build marker
 // v27 build marker
 // v26 build marker
 // v25b build marker
@@ -45,6 +46,7 @@
     currentPose: { x: 0, y: 0, heading: 0 },
     filteredPose: { x: 0, y: 0, heading: 0 },
     poseSmoothingAlpha: 0.22,
+    poseSmoothingPreset: "balanced",
     corrections: [],
     stepCount: 0,
     stepLength: DEFAULT_STEP_METERS,
@@ -1285,6 +1287,44 @@
 
   function getDisplayTrail() {
     return getSmoothedTrail(state.trail, 2);
+  }
+
+
+  function loadPoseSmoothingPreference() {
+    try {
+      const rawAlpha = localStorage.getItem("indoor_pose_smoothing_alpha");
+      const rawPreset = localStorage.getItem("indoor_pose_smoothing_preset");
+      const alpha = Number(rawAlpha);
+      if (Number.isFinite(alpha) && alpha > 0 && alpha < 1) {
+        state.poseSmoothingAlpha = alpha;
+      }
+      if (rawPreset) state.poseSmoothingPreset = rawPreset;
+    } catch (e) {}
+    refreshSmoothingUi();
+  }
+
+  function persistPoseSmoothingPreference() {
+    try {
+      localStorage.setItem("indoor_pose_smoothing_alpha", String(state.poseSmoothingAlpha));
+      localStorage.setItem("indoor_pose_smoothing_preset", state.poseSmoothingPreset || "balanced");
+    } catch (e) {}
+  }
+
+  function refreshSmoothingUi() {
+    [["smoothPresetResponsive","responsive"],["smoothPresetBalanced","balanced"],["smoothPresetStable","stable"]].forEach(([id, key]) => {
+      const el = $(id);
+      if (!el) return;
+      el.classList.toggle("active", state.poseSmoothingPreset === key);
+    });
+  }
+
+  function setPoseSmoothingPreset(preset, alpha) {
+    state.poseSmoothingPreset = preset;
+    state.poseSmoothingAlpha = alpha;
+    persistPoseSmoothingPreference();
+    refreshSmoothingUi();
+    setMessage(`已切換平滑強度：${preset === "responsive" ? "靈敏" : preset === "stable" ? "穩定" : "標準"}。`);
+    render();
   }
 
   function drawTrack() {
@@ -3968,7 +4008,11 @@
       setMessage("GPS 柔性校正失敗：" + e.message);
     }
   });
-  $("btnEditorAnchor")?.addEventListener("click", () => {
+    $("smoothPresetResponsive")?.addEventListener("click", () => setPoseSmoothingPreset("responsive", 0.35));
+  $("smoothPresetBalanced")?.addEventListener("click", () => setPoseSmoothingPreset("balanced", 0.22));
+  $("smoothPresetStable")?.addEventListener("click", () => setPoseSmoothingPreset("stable", 0.12));
+
+$("btnEditorAnchor")?.addEventListener("click", () => {
     state.anchorCreationMode = true;
     setEditorMode("point");
     setEditorMessage("標定點模式：在地圖上點一下直接新增標定點。");
@@ -3980,5 +4024,6 @@
   loadNavTrackPoints();
   loadNavHistory();
   loadMapElements();
+  loadPoseSmoothingPreference();
   render();
 })();
