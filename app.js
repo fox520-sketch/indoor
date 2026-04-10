@@ -1,3 +1,4 @@
+// v25 build marker
 // v24 build marker
 // v23 build marker
 // v22 build marker
@@ -1194,73 +1195,47 @@
   }
 
   function drawNavTelemetryPanel(ctx, wrapEl, viewport) {
-    if (!state.trail.length) return;
+    return;
+  }
+
+
+
+  function updateNavTelemetryDom() {
+    const setText = (id, value) => {
+      const el = $(id);
+      if (el) el.textContent = value;
+    };
+    if (!state.trail.length) {
+      setText("navStatStartDistance", "0 m");
+      setText("navStatSpeed", "0.00 m/s");
+      setText("navStatHeading", "北 (0°)");
+      setText("navStatAvgSpeed", "0.00 m/s");
+      setText("navStatTotalDistance", "0 m");
+      setText("navStatCoords", "(0.00, 0.00)");
+      setText("navCoordChip", "(0.00, 0.00)");
+      return;
+    }
     const pose = latestPose();
     const totalDist = totalTrailDistance();
     const startDist = currentStartToPoseDistance();
     const heading = movementHeadingDegrees();
     const speed = currentSegmentSpeedMps();
     const avgSpeed = averageTrailSpeedMps();
-    const rect = getWrapRect(wrapEl);
-
-    const row1 = `距離起點 ${formatScaleMeters(startDist)}   速度 ${formatSpeed(speed)}`;
-    const row2 = `方向 ${headingToText(heading)} (${heading.toFixed(0)}°)   平均 ${formatSpeed(avgSpeed)}`;
-    const row3 = `移動距離 ${formatScaleMeters(totalDist)}`;
-
-    const boxX = 16;
-    const boxY = 14;
-    const boxW = Math.min(300, rect.width - 110);
-    const boxH = 72;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.88)";
-    ctx.strokeStyle = "#cbd5e1";
-    ctx.lineWidth = 1;
-    if (typeof ctx.roundRect === "function") {
-      ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxW, boxH, 14);
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      ctx.fillRect(boxX, boxY, boxW, boxH);
-      ctx.strokeRect(boxX, boxY, boxW, boxH);
-    }
-
-    ctx.fillStyle = "#0f172a";
-    ctx.font = "bold 12px system-ui, sans-serif";
-    ctx.fillText(row1, boxX + 12, boxY + 22);
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText(row2, boxX + 12, boxY + 42);
-    ctx.fillText(row3, boxX + 12, boxY + 61);
-
     const coordText = `(${fmt(pose.x, 2)}, ${fmt(pose.y, 2)})`;
-    const chipW = 120;
-    const chipH = 28;
-    const chipX = rect.width - chipW - 86;
-    const chipY = 18;
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.strokeStyle = "#cbd5e1";
-    if (typeof ctx.roundRect === "function") {
-      ctx.beginPath();
-      ctx.roundRect(chipX, chipY, chipW, chipH, 999);
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      ctx.fillRect(chipX, chipY, chipW, chipH);
-      ctx.strokeRect(chipX, chipY, chipW, chipH);
-    }
-    ctx.fillStyle = "#334155";
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText(coordText, chipX + 12, chipY + 18);
-
-    ctx.restore();
+    setText("navStatStartDistance", formatScaleMeters(startDist));
+    setText("navStatSpeed", formatSpeed(speed));
+    setText("navStatHeading", `${headingToText(heading)} (${heading.toFixed(0)}°)`);
+    setText("navStatAvgSpeed", formatSpeed(avgSpeed));
+    setText("navStatTotalDistance", formatScaleMeters(totalDist));
+    setText("navStatCoords", coordText);
+    setText("navCoordChip", coordText);
   }
-
 
   function drawTrack() {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
     ensureCanvasSize(canvas, wrapEl);
+    updateNavTelemetryDom();
     const rect = getWrapRect(wrapEl);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(ctx, wrapEl, state.navViewport);

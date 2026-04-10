@@ -1,4 +1,6 @@
+// v25 build marker
 <!DOCTYPE html>
+<!-- v25 build marker -->
 <!-- v24 build marker -->
 <!-- v23 build marker -->
 <!-- v22 build marker -->
@@ -411,6 +413,30 @@
       bottom: 20px;
     }
 
+  
+    .nav-stats-bar{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px 12px;
+      align-items:center;
+      margin:10px 0 12px;
+      padding:12px 14px;
+      border:1px solid var(--border);
+      border-radius:16px;
+      background:rgba(255,255,255,0.92);
+      box-shadow:0 8px 18px rgba(15,23,42,0.06);
+      font-size:13px;
+      color:var(--text);
+    }
+    .nav-stat{display:flex;justify-content:space-between;gap:8px;min-width:0;}
+    .nav-stat-label{color:var(--muted);white-space:nowrap;}
+    .nav-stat-value{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .nav-coord-chip{
+      position:absolute;right:90px;bottom:20px;z-index:3;padding:7px 12px;border:1px solid var(--border);
+      border-radius:999px;background:rgba(255,255,255,0.92);color:#334155;font-size:12px;
+      box-shadow:0 6px 14px rgba(15,23,42,0.06);pointer-events:none;
+    }
+
   </style>
 </head>
 <body>
@@ -479,10 +505,21 @@
               <button class="secondary" id="btnHeadingCorrection">按鈕 2：方向校正</button>
             </div>
 
-            <div class="map-wrap" id="trackCanvasWrap">
+            
+          <div class="nav-stats-bar" id="navStatsBar">
+            <div class="nav-stat"><span class="nav-stat-label">距離起點</span><span class="nav-stat-value" id="navStatStartDistance">0 m</span></div>
+            <div class="nav-stat"><span class="nav-stat-label">目前速度</span><span class="nav-stat-value" id="navStatSpeed">0.00 m/s</span></div>
+            <div class="nav-stat"><span class="nav-stat-label">方向</span><span class="nav-stat-value" id="navStatHeading">北 (0°)</span></div>
+            <div class="nav-stat"><span class="nav-stat-label">平均速度</span><span class="nav-stat-value" id="navStatAvgSpeed">0.00 m/s</span></div>
+            <div class="nav-stat"><span class="nav-stat-label">移動距離</span><span class="nav-stat-value" id="navStatTotalDistance">0 m</span></div>
+            <div class="nav-stat"><span class="nav-stat-label">目前座標</span><span class="nav-stat-value" id="navStatCoords">(0.00, 0.00)</span></div>
+          </div>
+
+          <div class="map-wrap" id="trackCanvasWrap">
               <div class="map-overlay compass" id="navCompass"><div class="compass-needle" id="navCompassNeedle"></div><span>N</span></div>
               <div class="map-overlay zoom-chip" id="navZoomChip">100%</div>
               <canvas id="trackCanvas" width="560" height="560"></canvas>
+            <div class="nav-coord-chip" id="navCoordChip">(0.00, 0.00)</div>
             </div>
             <div class="subtle" style="margin-top:10px;">紅色虛線為目前導航段，橘色虛線為後續段，藍點為已儲存校正點，紫線/綠點/黃區為地圖編輯圖層。</div>
           </div>
@@ -1855,73 +1892,47 @@
   }
 
   function drawNavTelemetryPanel(ctx, wrapEl, viewport) {
-    if (!state.trail.length) return;
+    return;
+  }
+
+
+
+  function updateNavTelemetryDom() {
+    const setText = (id, value) => {
+      const el = $(id);
+      if (el) el.textContent = value;
+    };
+    if (!state.trail.length) {
+      setText("navStatStartDistance", "0 m");
+      setText("navStatSpeed", "0.00 m/s");
+      setText("navStatHeading", "北 (0°)");
+      setText("navStatAvgSpeed", "0.00 m/s");
+      setText("navStatTotalDistance", "0 m");
+      setText("navStatCoords", "(0.00, 0.00)");
+      setText("navCoordChip", "(0.00, 0.00)");
+      return;
+    }
     const pose = latestPose();
     const totalDist = totalTrailDistance();
     const startDist = currentStartToPoseDistance();
     const heading = movementHeadingDegrees();
     const speed = currentSegmentSpeedMps();
     const avgSpeed = averageTrailSpeedMps();
-    const rect = getWrapRect(wrapEl);
-
-    const row1 = `距離起點 ${formatScaleMeters(startDist)}   速度 ${formatSpeed(speed)}`;
-    const row2 = `方向 ${headingToText(heading)} (${heading.toFixed(0)}°)   平均 ${formatSpeed(avgSpeed)}`;
-    const row3 = `移動距離 ${formatScaleMeters(totalDist)}`;
-
-    const boxX = 16;
-    const boxY = 14;
-    const boxW = Math.min(300, rect.width - 110);
-    const boxH = 72;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(255,255,255,0.88)";
-    ctx.strokeStyle = "#cbd5e1";
-    ctx.lineWidth = 1;
-    if (typeof ctx.roundRect === "function") {
-      ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxW, boxH, 14);
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      ctx.fillRect(boxX, boxY, boxW, boxH);
-      ctx.strokeRect(boxX, boxY, boxW, boxH);
-    }
-
-    ctx.fillStyle = "#0f172a";
-    ctx.font = "bold 12px system-ui, sans-serif";
-    ctx.fillText(row1, boxX + 12, boxY + 22);
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText(row2, boxX + 12, boxY + 42);
-    ctx.fillText(row3, boxX + 12, boxY + 61);
-
     const coordText = `(${fmt(pose.x, 2)}, ${fmt(pose.y, 2)})`;
-    const chipW = 120;
-    const chipH = 28;
-    const chipX = rect.width - chipW - 86;
-    const chipY = 18;
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.strokeStyle = "#cbd5e1";
-    if (typeof ctx.roundRect === "function") {
-      ctx.beginPath();
-      ctx.roundRect(chipX, chipY, chipW, chipH, 999);
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      ctx.fillRect(chipX, chipY, chipW, chipH);
-      ctx.strokeRect(chipX, chipY, chipW, chipH);
-    }
-    ctx.fillStyle = "#334155";
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText(coordText, chipX + 12, chipY + 18);
-
-    ctx.restore();
+    setText("navStatStartDistance", formatScaleMeters(startDist));
+    setText("navStatSpeed", formatSpeed(speed));
+    setText("navStatHeading", `${headingToText(heading)} (${heading.toFixed(0)}°)`);
+    setText("navStatAvgSpeed", formatSpeed(avgSpeed));
+    setText("navStatTotalDistance", formatScaleMeters(totalDist));
+    setText("navStatCoords", coordText);
+    setText("navCoordChip", coordText);
   }
-
 
   function drawTrack() {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
     ensureCanvasSize(canvas, wrapEl);
+    updateNavTelemetryDom();
     const rect = getWrapRect(wrapEl);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(ctx, wrapEl, state.navViewport);
