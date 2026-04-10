@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v20 build marker -->
 <!-- v19 build marker -->
 <!-- v17 build marker -->
 <!-- v16: min zoom updated to 1% in inline script -->
@@ -1741,6 +1742,59 @@
   }
 
 
+
+  function currentStartToPoseDistance() {
+    if (!state.trail.length) return 0;
+    return distanceBetween(state.trail[0], latestPose());
+  }
+
+  function formatScaleMeters(meters) {
+    if (!Number.isFinite(meters) || meters <= 0) return "0 m";
+    if (meters >= 1000) return `${(meters / 1000).toFixed(2)} km`;
+    if (meters >= 100) return `${Math.round(meters)} m`;
+    if (meters >= 10) return `${meters.toFixed(1)} m`;
+    return `${meters.toFixed(2)} m`;
+  }
+
+  function drawScaleRuler(ctx, wrapEl, viewport, corner = "bottom-left") {
+    const base = getBasePixelsPerWorld(wrapEl);
+    const pxPerMeterX = Math.max(base.x * (viewport?.scale || 1), 0.001);
+    const targetPx = 120;
+    const rawMeters = targetPx / pxPerMeterX;
+    const choices = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+    let meters = choices[choices.length - 1];
+    for (const c of choices) {
+      if (rawMeters <= c) { meters = c; break; }
+    }
+    const rulerPx = meters * pxPerMeterX;
+    const rect = getWrapRect(wrapEl);
+    const margin = 18;
+    const x = corner === "bottom-right" ? rect.width - margin - rulerPx : margin;
+    const y = rect.height - margin;
+
+    ctx.save();
+    ctx.strokeStyle = "#0f172a";
+    ctx.fillStyle = "#0f172a";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + rulerPx, y);
+    ctx.moveTo(x, y - 8);
+    ctx.lineTo(x, y + 8);
+    ctx.moveTo(x + rulerPx, y - 8);
+    ctx.lineTo(x + rulerPx, y + 8);
+    ctx.stroke();
+    labelBox(ctx, x, y - 14, `尺規 ${formatScaleMeters(meters)}`, "#0f172a");
+    ctx.restore();
+  }
+
+  function drawStartToCurrentDistanceBadge(ctx, wrapEl, viewport, title = "起點→目前位置") {
+    if (!state.trail.length) return;
+    const dist = currentStartToPoseDistance();
+    const rect = getWrapRect(wrapEl);
+    labelBox(ctx, rect.width - 220, 22, `${title}：${formatScaleMeters(dist)}`, "#7c2d12");
+  }
+
   function drawTrack() {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
@@ -2761,6 +2815,9 @@
       ctx.fill();
       labelBox(ctx, lastPt.x + 10, lastPt.y - 10, "目前位置", "#991b1b");
     }
+
+    drawScaleRuler(ctx, wrapEl, state.editorViewport, "bottom-left");
+    drawStartToCurrentDistanceBadge(ctx, wrapEl, state.editorViewport, "起點→目前位置");
 
     if (state.savedAnchors.length) {
       state.savedAnchors.forEach((a) => {
