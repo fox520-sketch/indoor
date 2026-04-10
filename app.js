@@ -1,3 +1,4 @@
+// v30 build marker
 // v29 build marker
 // v28 build marker
 // v27 build marker
@@ -464,7 +465,7 @@
     if (navWrap && !$("btnTrackFullscreen")) {
       const action = document.createElement("div");
       action.className = "map-overlay map-action-group";
-      action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">自動回正：開</button><button id="btnNavFitNow" class="map-action-btn" type="button">立即回正</button>`;
+      action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">自動回正：開</button><button id="btnNavFitNow" class="map-action-btn" type="button">目前位置</button>`;
       navWrap.appendChild(action);
     }
 
@@ -3982,8 +3983,7 @@
     refreshViewportUI();
   });
   $("btnNavFitNow")?.addEventListener("click", () => {
-    ensureNavViewportVisible(true);
-    refreshViewportUI();
+    centerNavOnCurrentPose();
   });
   $("btnEditorFullscreen")?.addEventListener("click", () => toggleWrapFullscreen("editorCanvasWrap"));
   document.addEventListener("fullscreenchange", () => {
