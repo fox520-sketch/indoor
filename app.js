@@ -1,3 +1,4 @@
+// v49 build marker
 // v48 build marker
 // v46 build marker
 // v44 build marker
@@ -63,6 +64,7 @@
     poseSmoothingAlpha: 0.22,
     poseSmoothingPreset: "balanced",
     corrections: [],
+    importedTracks: [],
     stepCount: 0,
     stepLength: DEFAULT_STEP_METERS,
     lastStepAt: 0,
@@ -264,6 +266,7 @@
     state.savedAnchors.forEach((a) => addPoint(a.x, a.y));
     state.navTrackPoints.forEach((p) => addPoint(p.x, p.y));
     state.plannedRoutePoints.forEach((p) => addPoint(p.x, p.y));
+    state.importedTracks.forEach((track) => track.points.forEach((p) => addPoint(p.x, p.y)));
     state.mapElements.forEach((el) => {
       if (el.type === "point") {
         addPoint(el.x, el.y);
@@ -1322,6 +1325,59 @@ function fmt(n, d = 2) {
     return out;
   }
 
+
+  function getImportedTrackColors() {
+    return ["#2563eb", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#be123c", "#0f766e"];
+  }
+
+  function normalizeImportedTrackPayload(payload) {
+    const colors = getImportedTrackColors();
+    const tracks = [];
+
+    const toPoints = (arr) => Array.isArray(arr) ? arr.map((p) => ({
+      x: Number(p?.x || 0),
+      y: Number(p?.y || 0),
+      t: p?.t || Date.now(),
+      heading: Number(p?.heading || 0)
+    })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) : [];
+
+    if (Array.isArray(payload)) {
+      tracks.push({ name: "匯入軌跡 1", color: colors[0], points: toPoints(payload) });
+    } else if (Array.isArray(payload?.trail)) {
+      tracks.push({ name: payload?.name || "匯入軌跡 1", color: payload?.color || colors[0], points: toPoints(payload.trail) });
+    } else if (Array.isArray(payload?.tracks)) {
+      payload.tracks.forEach((track, idx) => {
+        tracks.push({
+          name: track?.name || `匯入軌跡 ${idx + 1}`,
+          color: track?.color || colors[idx % colors.length],
+          points: toPoints(track?.points || track?.trail || [])
+        });
+      });
+    }
+
+    return tracks.filter((t) => t.points.length >= 2);
+  }
+
+  async function importNavJsonTracks(file) {
+    if (!file) return;
+    const raw = await file.text();
+    const parsed = JSON.parse(raw);
+    const tracks = normalizeImportedTrackPayload(parsed);
+    if (!tracks.length) {
+      setMessage("匯入失敗：找不到可顯示的軌跡資料。");
+      return;
+    }
+    const palette = getImportedTrackColors();
+    tracks.forEach((track, idx) => {
+      track.id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + idx);
+      if (!track.color) track.color = palette[(state.importedTracks.length + idx) % palette.length];
+    });
+    state.importedTracks.push(...tracks);
+    setMessage(`已匯入 ${tracks.length} 條 JSON 軌跡。`);
+    ensureNavViewportVisible(true);
+    refreshViewportUI();
+  }
+
   function getDisplayTrail() {
     return getSmoothedTrail(state.trail, 2);
   }
@@ -1421,6 +1477,21 @@ function fmt(n, d = 2) {
     }
 
     if (!state.trail.length) return;
+
+    state.importedTracks.forEach((track) => {
+      const importedTrail = getSmoothedTrail(track.points, 2);
+      ctx.strokeStyle = track.color || "#2563eb";
+      ctx.lineWidth = lineWidthForWorld(2.5, state.navViewport);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      importedTrail.forEach((p, i) => {
+        const pt = viewportWorldToScreen(p, state.navViewport, wrapEl);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.stroke();
+    });
 
     const displayTrail = getDisplayTrail();
     ctx.strokeStyle = "#0f172a";
