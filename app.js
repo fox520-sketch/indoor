@@ -1,3 +1,4 @@
+// v36 build marker
 // v35 build marker
 // v34 rebuild
 // v32 build marker
@@ -1345,6 +1346,7 @@ function fmt(n, d = 2) {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
     ensureCanvasSize(canvas, wrapEl);
+    if (!state.navAutoFit) syncNavViewportToCurrentPose();
     updateFilteredPose();
     updateNavTelemetryDom();
     const rect = getWrapRect(wrapEl);
@@ -3853,6 +3855,17 @@ function fmt(n, d = 2) {
     });
   }
 
+
+  function syncNavViewportToCurrentPose() {
+    const wrapEl = $("trackCanvasWrap");
+    if (!wrapEl) return;
+    const pose = latestPose();
+    const viewport = state.navViewport;
+    const base = getBasePixelsPerWorld(wrapEl);
+    viewport.panX = -(Number(pose.x || 0) * base.x * (viewport.scale || 1));
+    viewport.panY = -(Number(pose.y || 0) * base.y * (viewport.scale || 1));
+    clampViewport(viewport);
+  }
 
   function centerNavOnCurrentPose() {
     const wrapEl = $("trackCanvasWrap");
