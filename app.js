@@ -1,3 +1,4 @@
+// v44 build marker
 // v43 build marker
 // v41 build marker
 // v40 build marker
@@ -279,16 +280,30 @@
     const base = getBasePixelsPerWorld(wrapEl);
     const worldWidth = Math.max(normalized.maxX - normalized.minX, 8);
     const worldHeight = Math.max(normalized.maxY - normalized.minY, 8);
-    const availableWidth = Math.max(rect.width - padding * 2, rect.width * 0.35);
-    const availableHeight = Math.max(rect.height - padding * 2, rect.height * 0.35);
+
+    const insetLeft = Math.max(22, rect.width * 0.05);
+    const insetRight = Math.max(92, rect.width * 0.18);
+    const insetTop = Math.max(96, rect.height * 0.14);
+    const insetBottom = Math.max(72, rect.height * 0.10);
+
+    const availableWidth = Math.max(rect.width - insetLeft - insetRight, rect.width * 0.28);
+    const availableHeight = Math.max(rect.height - insetTop - insetBottom, rect.height * 0.42);
+
     const scaleX = availableWidth / Math.max(worldWidth * base.x, 1);
     const scaleY = availableHeight / Math.max(worldHeight * base.y, 1);
-    viewport.scale = Math.min(viewport.maxScale || MAX_VIEW_SCALE, Math.max(viewport.minScale || MIN_VIEW_SCALE, Math.min(scaleX, scaleY)));
+    viewport.scale = Math.min(
+      viewport.maxScale || MAX_VIEW_SCALE,
+      Math.max(viewport.minScale || MIN_VIEW_SCALE, Math.min(scaleX, scaleY))
+    );
 
     const centerX = (normalized.minX + normalized.maxX) / 2;
     const centerY = (normalized.minY + normalized.maxY) / 2;
-    viewport.panX = -centerX * base.x * viewport.scale;
-    viewport.panY = -centerY * base.y * viewport.scale;
+
+    const safeCenterX = insetLeft + availableWidth / 2;
+    const safeCenterY = insetTop + availableHeight / 2;
+
+    viewport.panX = safeCenterX - rect.width / 2 - centerX * base.x * viewport.scale;
+    viewport.panY = safeCenterY - rect.height / 2 - centerY * base.y * viewport.scale;
     clampViewport(viewport);
   }
 
