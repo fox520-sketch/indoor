@@ -1,3 +1,4 @@
+// v54 build marker
 // v53 build marker
 // v52 build marker
 // v51 build marker
@@ -1409,6 +1410,7 @@ function fmt(n, d = 2) {
     if (!tracks.length) {
       const keys = parsed && typeof parsed === "object" ? Object.keys(parsed).slice(0, 12).join(", ") : "無";
       setMessage(`匯入失敗：找不到可顯示的軌跡資料。檔案鍵值：${keys || "無"}`);
+      refreshViewportUI();
       return;
     }
     const palette = getImportedTrackColors();
@@ -1421,6 +1423,7 @@ function fmt(n, d = 2) {
     setMessage(`已匯入 ${tracks.length} 條 JSON 軌跡，共 ${pointCount} 個軌跡點。`);
     ensureNavViewportVisible(true);
     refreshViewportUI();
+    render();
   }
 
   function getDisplayTrail() {
@@ -4067,7 +4070,15 @@ function fmt(n, d = 2) {
   $("btnPosCorrection").addEventListener("click", beginPositionCorrection);
   $("btnHeadingCorrection").addEventListener("click", beginHeadingCorrection);
   $("btnExport").addEventListener("click", exportData);
-  $("importJsonFile")?.addEventListener("change", async (e) => {
+
+  $("btnImportJson")?.addEventListener("click", () => {
+    if (!$("importJsonFile")) {
+      setMessage("找不到匯入欄位 importJsonFile。");
+    }
+  });
+
+  const importJsonInput = $("importJsonFile");
+  const handleImportJsonFile = async (e) => {
     const file = e.target?.files?.[0];
     if (!file) {
       setMessage("未選擇 JSON 檔案。");
@@ -4081,7 +4092,9 @@ function fmt(n, d = 2) {
     } finally {
       e.target.value = "";
     }
-  });
+  };
+  importJsonInput?.addEventListener("change", handleImportJsonFile);
+  importJsonInput?.addEventListener("input", handleImportJsonFile);
   $("btnStepCal").addEventListener("click", beginStepLengthCalibration);
   $("btnQrCal").addEventListener("click", openQrCalibration);
   $("btnQrClose").addEventListener("click", closeQrCalibration);
