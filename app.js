@@ -1,3 +1,4 @@
+// v52 build marker
 // v51 build marker
 // v50 build marker
 // v49 build marker
@@ -1355,6 +1356,32 @@ function fmt(n, d = 2) {
           points: toPoints(track?.points || track?.trail || [])
         });
       });
+    } else if (Array.isArray(payload?.trailHistory)) {
+      payload.trailHistory.forEach((entry, idx) => {
+        tracks.push({
+          name: entry?.name || `匯入軌跡 ${idx + 1}`,
+          color: entry?.color || colors[idx % colors.length],
+          points: toPoints(entry?.points || entry?.trail || [])
+        });
+      });
+    } else if (Array.isArray(payload?.state?.trail)) {
+      tracks.push({
+        name: payload?.name || "匯入軌跡 1",
+        color: payload?.color || colors[0],
+        points: toPoints(payload.state.trail)
+      });
+    } else if (Array.isArray(payload?.data?.trail)) {
+      tracks.push({
+        name: payload?.name || "匯入軌跡 1",
+        color: payload?.color || colors[0],
+        points: toPoints(payload.data.trail)
+      });
+    } else if (Array.isArray(payload?.path)) {
+      tracks.push({
+        name: payload?.name || "匯入軌跡 1",
+        color: payload?.color || colors[0],
+        points: toPoints(payload.path)
+      });
     }
 
     return tracks.filter((t) => t.points.length >= 2);
@@ -1375,7 +1402,8 @@ function fmt(n, d = 2) {
       if (!track.color) track.color = palette[(state.importedTracks.length + idx) % palette.length];
     });
     state.importedTracks.push(...tracks);
-    setMessage(`已匯入 ${tracks.length} 條 JSON 軌跡。`);
+    const pointCount = tracks.reduce((sum, t) => sum + t.points.length, 0);
+    setMessage(`已匯入 ${tracks.length} 條 JSON 軌跡，共 ${pointCount} 個軌跡點。`);
     ensureNavViewportVisible(true);
     refreshViewportUI();
   }

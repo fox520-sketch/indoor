@@ -98,3 +98,5 @@
 - v50: 修正「匯入 JSON」按鈕無法開啟檔案選擇器的問題，補上 type=button 與更穩定的點擊處理。
 
 - v51: 修正匯入 JSON 檔案選擇器，改用原生 label-for 方式開啟檔案選擇器，並補上 importJsonFile 的 change 事件。
+
+- v52: 修正「匯入 JSON」解析，支援匯入本工具自己匯出的 JSON 格式，並顯示匯入的軌跡點數。
