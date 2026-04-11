@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v41 build marker -->
 <!-- v40 build marker -->
 <!-- v39 build marker -->
 <!-- v38 build marker -->
@@ -614,6 +615,28 @@
       right:14px !important;
       bottom:116px !important;
       z-index:4 !important;
+    }
+
+  
+    .map-toolbar-row{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+    .map-toolbar-row .map-action-btn{
+      min-width:0 !important;
+      min-height:42px !important;
+      padding:8px 6px !important;
+      font-size:12px !important;
+      line-height:1.1 !important;
+      white-space:normal !important;
+      text-align:center !important;
+      border-radius:999px !important;
+      box-shadow:0 6px 14px rgba(15,23,42,0.08) !important;
+    }
+    .map-wrap{
+      padding-bottom:10px !important;
     }
 
   </style>
@@ -1510,9 +1533,9 @@
     const navWrap = $("trackCanvasWrap");
     if (navWrap && !$("btnTrackFullscreen")) {
       const action = document.createElement("div");
-      action.className = "map-overlay map-action-group";
+      action.className = "map-toolbar-row";
       action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">回正 開</button><button id="btnNavFollow" class="map-action-btn" type="button">跟隨 開</button><button id="btnNavFitNow" class="map-action-btn" type="button">置中</button>`;
-      navWrap.appendChild(action);
+      navWrap.parentNode.insertBefore(action, navWrap.nextSibling);
     }
 
     const editorWrap = $("editorCanvasWrap");

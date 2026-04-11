@@ -1,3 +1,4 @@
+// v41 build marker
 // v40 build marker
 // v39 build marker
 // v38 build marker
@@ -475,9 +476,9 @@
     const navWrap = $("trackCanvasWrap");
     if (navWrap && !$("btnTrackFullscreen")) {
       const action = document.createElement("div");
-      action.className = "map-overlay map-action-group";
+      action.className = "map-toolbar-row";
       action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">回正 開</button><button id="btnNavFollow" class="map-action-btn" type="button">跟隨 開</button><button id="btnNavFitNow" class="map-action-btn" type="button">置中</button>`;
-      navWrap.appendChild(action);
+      navWrap.parentNode.insertBefore(action, navWrap.nextSibling);
     }
 
     const editorWrap = $("editorCanvasWrap");
