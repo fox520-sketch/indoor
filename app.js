@@ -1,3 +1,4 @@
+// v37 build marker
 // v36 build marker
 // v35 build marker
 // v34 rebuild
@@ -110,7 +111,8 @@
     lastGeoCorrectionAt: 0,
     anchorCreationMode: false,
     gpsAnchorSampling: false,
-    navAutoFit: true
+    navAutoFit: true,
+    navFollowCurrent: true
   };
 
   let geoWatchId = null;
@@ -172,6 +174,8 @@
     applyViewportTransform($("trackCanvas"), state.navViewport, "navZoomChip");
     const navAutoFitBtn = $("btnNavAutoFit");
     if (navAutoFitBtn) navAutoFitBtn.textContent = `自動回正：${state.navAutoFit ? "開" : "關"}`;
+    const navFollowBtn = $("btnNavFollow");
+    if (navFollowBtn) navFollowBtn.textContent = `跟隨目前位置：${state.navFollowCurrent ? "開" : "關"}`;
     applyViewportTransform($("editorCanvas"), state.editorViewport, "editorZoomChip");
     setCompass("navCompassNeedle", state.orientation.heading || latestPose().heading || 0);
     setCompass("editorCompassNeedle", state.orientation.heading || latestPose().heading || 0);
@@ -469,7 +473,7 @@
     if (navWrap && !$("btnTrackFullscreen")) {
       const action = document.createElement("div");
       action.className = "map-overlay map-action-group";
-      action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">自動回正：開</button><button id="btnNavFitNow" class="map-action-btn" type="button">目前位置</button>`;
+      action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">自動回正：開</button><button id="btnNavFollow" class="map-action-btn" type="button">跟隨目前位置：開</button><button id="btnNavFitNow" class="map-action-btn" type="button">目前位置</button>`;
       navWrap.appendChild(action);
     }
 
@@ -1346,7 +1350,7 @@ function fmt(n, d = 2) {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
     ensureCanvasSize(canvas, wrapEl);
-    if (!state.navAutoFit) syncNavViewportToCurrentPose();
+    if (!state.navAutoFit && state.navFollowCurrent) syncNavViewportToCurrentPose();
     updateFilteredPose();
     updateNavTelemetryDom();
     const rect = getWrapRect(wrapEl);
@@ -4013,6 +4017,11 @@ function fmt(n, d = 2) {
   $("btnNavAutoFit")?.addEventListener("click", () => {
     state.navAutoFit = !state.navAutoFit;
     if (state.navAutoFit) ensureNavViewportVisible(true);
+    refreshViewportUI();
+  });
+  $("btnNavFollow")?.addEventListener("click", () => {
+    state.navFollowCurrent = !state.navFollowCurrent;
+    if (state.navFollowCurrent) centerNavOnCurrentPose();
     refreshViewportUI();
   });
   $("btnNavFitNow")?.addEventListener("click", () => {
