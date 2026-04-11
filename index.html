@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v55 build marker -->
 <!-- v54 build marker -->
 <!-- v53 build marker -->
 <!-- v52 build marker -->
@@ -18,7 +19,8 @@
 <!-- v36 build marker -->
 <!-- v35 build marker -->
 <!-- v34 rebuild -->
-<!-- v32 build marker -->\n<!-- v31 build marker -->
+<!-- v32 build marker -->
+<!-- v31 build marker -->
 <!-- v30 build marker -->
 <!-- v29 build marker -->
 <!-- v28 build marker -->
@@ -664,6 +666,25 @@
       margin-top:6px;
     }
 
+  
+    .import-json-trigger{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:44px;
+      padding:10px 16px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:#eef2ff;
+      color:var(--text);
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:0 2px 10px rgba(15,23,42,.08);
+      text-decoration:none;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+
   </style>
 </head>
 <body>
@@ -701,7 +722,7 @@
               <button id="btnStart">開始追蹤</button>
               <button id="btnStop">停止追蹤</button>
               <button class="secondary" id="btnExport">匯出 JSON</button>
-              <label class="secondary" id="btnImportJson" for="importJsonFile" tabindex="0" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;">匯入 JSON</label>
+              <label class="secondary import-json-trigger" id="btnImportJson" for="importJsonFile" tabindex="0">匯入 JSON</label>
               <input id="importJsonFile" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
               <button class="secondary" id="btnStepCal">10 步步長校正</button>
               <button class="secondary" id="btnQrCal">QR 校正點</button>

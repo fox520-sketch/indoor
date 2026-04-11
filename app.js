@@ -1,3 +1,4 @@
+// v55 build marker
 // v54 build marker
 // v53 build marker
 // v52 build marker
@@ -4076,25 +4077,6 @@ function fmt(n, d = 2) {
       setMessage("找不到匯入欄位 importJsonFile。");
     }
   });
-
-  const importJsonInput = $("importJsonFile");
-  const handleImportJsonFile = async (e) => {
-    const file = e.target?.files?.[0];
-    if (!file) {
-      setMessage("未選擇 JSON 檔案。");
-      return;
-    }
-    setMessage(`已選擇檔案：${file.name}，開始匯入...`);
-    try {
-      await importNavJsonTracks(file);
-    } catch (err) {
-      setMessage("匯入 JSON 失敗：" + err.message);
-    } finally {
-      e.target.value = "";
-    }
-  };
-  importJsonInput?.addEventListener("change", handleImportJsonFile);
-  importJsonInput?.addEventListener("input", handleImportJsonFile);
   $("btnStepCal").addEventListener("click", beginStepLengthCalibration);
   $("btnQrCal").addEventListener("click", openQrCalibration);
   $("btnQrClose").addEventListener("click", closeQrCalibration);
@@ -4281,3 +4263,30 @@ $("btnEditorAnchor")?.addEventListener("click", () => {
   loadPoseSmoothingPreference();
   render();
 })();
+
+
+  document.addEventListener("click", (e) => {
+    const trigger = e.target && e.target.closest ? e.target.closest("#btnImportJson") : null;
+    if (!trigger) return;
+    setMessage("請選擇要匯入的 JSON 檔案。");
+  });
+
+  document.addEventListener("change", async (e) => {
+    const input = e.target && e.target.matches ? (e.target.matches("#importJsonFile") ? e.target : null) : null;
+    if (!input) return;
+    const file = input.files && input.files[0];
+    if (!file) {
+      setMessage("未選擇 JSON 檔案。");
+      return;
+    }
+    setMessage(`已選擇檔案：${file.name}，開始匯入...`);
+    try {
+      await importNavJsonTracks(file);
+    } catch (err) {
+      setMessage("匯入 JSON 失敗：" + err.message);
+    } finally {
+      input.value = "";
+    }
+  });
+
+
