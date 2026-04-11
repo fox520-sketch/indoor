@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v39 build marker -->
 <!-- v38 build marker -->
 <!-- v37 build marker -->
 <!-- v36 build marker -->
@@ -538,6 +539,40 @@
       right:14px;
       bottom:74px;
       max-width:150px;
+      text-align:center;
+    }
+
+  
+    .map-wrap{
+      padding-bottom:96px !important;
+    }
+    .map-action-group{
+      display:grid !important;
+      grid-template-columns:repeat(4, minmax(64px, 1fr));
+      gap:8px;
+      align-items:end;
+      justify-content:center;
+      width:calc(100% - 28px);
+      max-width:420px;
+      left:50%;
+      transform:translateX(-50%);
+      right:auto !important;
+      bottom:12px;
+    }
+    .map-action-btn{
+      min-width:0;
+      min-height:42px;
+      padding:8px 6px;
+      font-size:12px;
+      line-height:1.1;
+      white-space:normal;
+      text-align:center;
+      box-shadow:0 6px 14px rgba(15,23,42,0.08);
+    }
+    .nav-coord-chip{
+      right:14px;
+      bottom:112px;
+      max-width:160px;
       text-align:center;
     }
 
@@ -1142,9 +1177,9 @@
   function refreshViewportUI() {
     applyViewportTransform($("trackCanvas"), state.navViewport, "navZoomChip");
     const navAutoFitBtn = $("btnNavAutoFit");
-    if (navAutoFitBtn) navAutoFitBtn.textContent = `自動回正：${state.navAutoFit ? "開" : "關"}`;
+    if (navAutoFitBtn) navAutoFitBtn.textContent = `回正 ${state.navAutoFit ? "開" : "關"}`;
     const navFollowBtn = $("btnNavFollow");
-    if (navFollowBtn) navFollowBtn.textContent = `跟隨目前位置：${state.navFollowCurrent ? "開" : "關"}`;
+    if (navFollowBtn) navFollowBtn.textContent = `跟隨 ${state.navFollowCurrent ? "開" : "關"}`;
     applyViewportTransform($("editorCanvas"), state.editorViewport, "editorZoomChip");
     setCompass("navCompassNeedle", state.orientation.heading || latestPose().heading || 0);
     setCompass("editorCompassNeedle", state.orientation.heading || latestPose().heading || 0);
@@ -1436,7 +1471,7 @@
     if (navWrap && !$("btnTrackFullscreen")) {
       const action = document.createElement("div");
       action.className = "map-overlay map-action-group";
-      action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">自動回正：開</button><button id="btnNavFollow" class="map-action-btn" type="button">跟隨目前位置：開</button><button id="btnNavFitNow" class="map-action-btn" type="button">目前位置</button>`;
+      action.innerHTML = `<button id="btnTrackFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnNavAutoFit" class="map-action-btn" type="button">回正 開</button><button id="btnNavFollow" class="map-action-btn" type="button">跟隨 開</button><button id="btnNavFitNow" class="map-action-btn" type="button">置中</button>`;
       navWrap.appendChild(action);
     }
 
