@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v40 build marker -->
 <!-- v39 build marker -->
 <!-- v38 build marker -->
 <!-- v37 build marker -->
@@ -574,6 +575,45 @@
       bottom:112px;
       max-width:160px;
       text-align:center;
+    }
+
+  
+    .map-wrap{
+      position:relative;
+      padding-bottom:110px !important;
+      overflow:hidden;
+    }
+    .map-action-group{
+      position:absolute !important;
+      left:12px !important;
+      right:12px !important;
+      bottom:12px !important;
+      transform:none !important;
+      width:auto !important;
+      max-width:none !important;
+      display:grid !important;
+      grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+      gap:8px !important;
+      z-index:5 !important;
+      pointer-events:auto !important;
+    }
+    .map-action-btn{
+      min-width:0 !important;
+      min-height:42px !important;
+      padding:8px 6px !important;
+      font-size:12px !important;
+      line-height:1.1 !important;
+      white-space:normal !important;
+      text-align:center !important;
+      word-break:keep-all !important;
+      overflow-wrap:anywhere !important;
+      border-radius:999px !important;
+      box-shadow:0 6px 14px rgba(15,23,42,0.08) !important;
+    }
+    .nav-coord-chip{
+      right:14px !important;
+      bottom:116px !important;
+      z-index:4 !important;
     }
 
   </style>
