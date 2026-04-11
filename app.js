@@ -1,3 +1,4 @@
+// v53 build marker
 // v52 build marker
 // v51 build marker
 // v50 build marker
@@ -1388,12 +1389,26 @@ function fmt(n, d = 2) {
   }
 
   async function importNavJsonTracks(file) {
-    if (!file) return;
+    if (!file) {
+      setMessage("匯入失敗：沒有檔案。");
+      return;
+    }
     const raw = await file.text();
-    const parsed = JSON.parse(raw);
+    if (!raw || !raw.trim()) {
+      setMessage("匯入失敗：JSON 檔案是空的。");
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      setMessage("匯入失敗：JSON 格式錯誤。");
+      throw err;
+    }
     const tracks = normalizeImportedTrackPayload(parsed);
     if (!tracks.length) {
-      setMessage("匯入失敗：找不到可顯示的軌跡資料。");
+      const keys = parsed && typeof parsed === "object" ? Object.keys(parsed).slice(0, 12).join(", ") : "無";
+      setMessage(`匯入失敗：找不到可顯示的軌跡資料。檔案鍵值：${keys || "無"}`);
       return;
     }
     const palette = getImportedTrackColors();
@@ -4054,7 +4069,11 @@ function fmt(n, d = 2) {
   $("btnExport").addEventListener("click", exportData);
   $("importJsonFile")?.addEventListener("change", async (e) => {
     const file = e.target?.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setMessage("未選擇 JSON 檔案。");
+      return;
+    }
+    setMessage(`已選擇檔案：${file.name}，開始匯入...`);
     try {
       await importNavJsonTracks(file);
     } catch (err) {
