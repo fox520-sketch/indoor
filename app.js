@@ -1,3 +1,4 @@
+// v34 rebuild
 // v32 build marker
 // v31 build marker\n// v30 build marker
 // v29 build marker
@@ -735,7 +736,12 @@
     return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
   }
 
-  function fmt(n, d = 2) {
+  function fmtMetersInt(n) {
+    const v = Number(n || 0);
+    return Number.isFinite(v) ? String(Math.round(v)) : "0";
+  }
+
+function fmt(n, d = 2) {
     return Number.isFinite(n) ? n.toFixed(d) : "-";
   }
 
