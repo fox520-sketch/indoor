@@ -106,3 +106,5 @@
 - v54: 匯入 JSON 改成更穩定的原生 label + file input 流程，並同時監聽 change/input 事件，確保選檔後有回應。
 
 - v55: 修正頁面頂部誤顯示的 \n 文字，並讓「匯入 JSON」按鈕外觀與其他按鈕一致；同時改用更穩定的 delegated 匯入事件。
+
+- v56: 修正匯入 JSON 事件作用域錯誤，將選檔與匯入事件綁定移回主程式內，讓 setMessage 與 importNavJsonTracks 可正常執行。
