@@ -1,3 +1,4 @@
+// v32 build marker
 // v31 build marker\n// v30 build marker
 // v29 build marker
 // v28 build marker
@@ -3845,6 +3846,18 @@
     });
   }
 
+
+  function centerNavOnCurrentPose() {
+    const wrapEl = $("trackCanvasWrap");
+    if (!wrapEl) return;
+    const pose = latestPose();
+    const viewport = state.navViewport;
+    const base = getBasePixelsPerWorld(wrapEl);
+    viewport.panX = -(Number(pose.x || 0) * base.x * (viewport.scale || 1));
+    viewport.panY = -(Number(pose.y || 0) * base.y * (viewport.scale || 1));
+    clampViewport(viewport);
+    refreshViewportUI();
+  }
 
   function switchPage(pageId) {
     document.querySelectorAll(".page").forEach(el => el.classList.toggle("active", el.id === pageId));
