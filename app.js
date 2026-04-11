@@ -1,3 +1,4 @@
+// v35 build marker
 // v34 rebuild
 // v32 build marker
 // v31 build marker\n// v30 build marker
@@ -1251,8 +1252,8 @@ function fmt(n, d = 2) {
       setText("navStatHeading", "北 (0°)");
       setText("navStatAvgSpeed", "0.00 m/s");
       setText("navStatTotalDistance", "0 m");
-      setText("navStatCoords", "(0.00, 0.00)");
-      setText("navCoordChip", "(0.00, 0.00)");
+      setText("navStatCoords", "(0 m, 0 m)");
+      setText("navCoordChip", "(0 m, 0 m)");
       return;
     }
     const pose = latestPose();
@@ -1261,7 +1262,7 @@ function fmt(n, d = 2) {
     const heading = movementHeadingDegrees();
     const speed = currentSegmentSpeedMps();
     const avgSpeed = averageTrailSpeedMps();
-    const coordText = `(${fmt(pose.x, 2)}, ${fmt(pose.y, 2)})`;
+    const coordText = `(${fmtMetersInt(pose.x)} m, ${fmtMetersInt(pose.y)} m)`;
     setText("navStatStartDistance", formatScaleMeters(startDist));
     setText("navStatSpeed", formatSpeed(speed));
     setText("navStatHeading", `${headingToText(heading)} (${heading.toFixed(0)}°)`);

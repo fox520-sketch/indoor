@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v35 build marker -->
 <!-- v34 rebuild -->
 <!-- v32 build marker -->\n<!-- v31 build marker -->
 <!-- v30 build marker -->
@@ -584,14 +585,14 @@
             <div class="nav-stat"><span class="nav-stat-label">方向</span><span class="nav-stat-value" id="navStatHeading">北 (0°)</span></div>
             <div class="nav-stat"><span class="nav-stat-label">平均速度</span><span class="nav-stat-value" id="navStatAvgSpeed">0.00 m/s</span></div>
             <div class="nav-stat"><span class="nav-stat-label">移動距離</span><span class="nav-stat-value" id="navStatTotalDistance">0 m</span></div>
-            <div class="nav-stat"><span class="nav-stat-label">目前座標</span><span class="nav-stat-value" id="navStatCoords">(0.00, 0.00)</span></div>
+            <div class="nav-stat"><span class="nav-stat-label">目前座標</span><span class="nav-stat-value" id="navStatCoords">(0 m, 0 m)</span></div>
           </div>
 
           <div class="map-wrap" id="trackCanvasWrap">
               <div class="map-overlay compass" id="navCompass"><div class="compass-needle" id="navCompassNeedle"></div><span>N</span></div>
               <div class="map-overlay zoom-chip" id="navZoomChip">100%</div>
               <canvas id="trackCanvas" width="560" height="560"></canvas>
-            <div class="nav-coord-chip" id="navCoordChip">(0.00, 0.00)</div>
+            <div class="nav-coord-chip" id="navCoordChip">(0 m, 0 m)</div>
             </div>
             <div class="subtle" style="margin-top:10px;">紅色虛線為目前導航段，橘色虛線為後續段，藍點為已儲存校正點，紫線/綠點/黃區為地圖編輯圖層。</div>
           </div>
@@ -2012,8 +2013,8 @@ function fmt(n, d = 2) {
       setText("navStatHeading", "北 (0°)");
       setText("navStatAvgSpeed", "0.00 m/s");
       setText("navStatTotalDistance", "0 m");
-      setText("navStatCoords", "(0.00, 0.00)");
-      setText("navCoordChip", "(0.00, 0.00)");
+      setText("navStatCoords", "(0 m, 0 m)");
+      setText("navCoordChip", "(0 m, 0 m)");
       return;
     }
     const pose = latestPose();
@@ -2022,7 +2023,7 @@ function fmt(n, d = 2) {
     const heading = movementHeadingDegrees();
     const speed = currentSegmentSpeedMps();
     const avgSpeed = averageTrailSpeedMps();
-    const coordText = `(${fmt(pose.x, 2)}, ${fmt(pose.y, 2)})`;
+    const coordText = `(${fmtMetersInt(pose.x)} m, ${fmtMetersInt(pose.y)} m)`;
     setText("navStatStartDistance", formatScaleMeters(startDist));
     setText("navStatSpeed", formatSpeed(speed));
     setText("navStatHeading", `${headingToText(heading)} (${heading.toFixed(0)}°)`);
