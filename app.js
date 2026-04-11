@@ -1,3 +1,4 @@
+// v45 build marker
 // v44 build marker
 // v43 build marker
 // v41 build marker
@@ -118,7 +119,9 @@
     anchorCreationMode: false,
     gpsAnchorSampling: false,
     navAutoFit: true,
-    navFollowCurrent: true
+    navFollowCurrent: true,
+    editorAutoFit: true,
+    editorFollowCurrent: true
   };
 
   let geoWatchId = null;
@@ -183,6 +186,10 @@
     const navFollowBtn = $("btnNavFollow");
     if (navFollowBtn) navFollowBtn.textContent = `跟隨 ${state.navFollowCurrent ? "開" : "關"}`;
     applyViewportTransform($("editorCanvas"), state.editorViewport, "editorZoomChip");
+    const editorAutoFitBtn = $("btnEditorAutoFit");
+    if (editorAutoFitBtn) editorAutoFitBtn.textContent = `回正 ${state.editorAutoFit ? "開" : "關"}`;
+    const editorFollowBtn = $("btnEditorFollow");
+    if (editorFollowBtn) editorFollowBtn.textContent = `跟隨 ${state.editorFollowCurrent ? "開" : "關"}`;
     setCompass("navCompassNeedle", state.orientation.heading || latestPose().heading || 0);
     setCompass("editorCompassNeedle", state.orientation.heading || latestPose().heading || 0);
     updateFullscreenButtons();
@@ -305,6 +312,14 @@
     viewport.panX = safeCenterX - rect.width / 2 - centerX * base.x * viewport.scale;
     viewport.panY = safeCenterY - rect.height / 2 - centerY * base.y * viewport.scale;
     clampViewport(viewport);
+  }
+
+  function ensureEditorViewportVisible(forceFit = false) {
+    const wrapEl = $("editorCanvasWrap");
+    if (!wrapEl) return;
+    if (!state.editorAutoFit && !forceFit) return;
+    const bounds = collectNavWorldBounds();
+    fitViewportToBounds(state.editorViewport, bounds, wrapEl, 48);
   }
 
   function ensureNavViewportVisible(forceFit = false) {
@@ -500,9 +515,9 @@
     const editorWrap = $("editorCanvasWrap");
     if (editorWrap && !$("btnEditorFullscreen")) {
       const action = document.createElement("div");
-      action.className = "map-overlay map-action-group";
-      action.innerHTML = `<button id="btnEditorFullscreen" class="map-action-btn" type="button">全螢幕</button>`;
-      editorWrap.appendChild(action);
+      action.className = "map-toolbar-row";
+      action.innerHTML = `<button id="btnEditorFullscreen" class="map-action-btn" type="button">全螢幕</button><button id="btnEditorAutoFit" class="map-action-btn" type="button">回正 開</button><button id="btnEditorFollow" class="map-action-btn" type="button">跟隨 開</button><button id="btnEditorCenter" class="map-action-btn" type="button">置中</button>`;
+      editorWrap.parentNode.insertBefore(action, editorWrap.nextSibling);
     }
 
     const mapControls = $("btnEditorClear")?.parentElement;
@@ -1279,6 +1294,7 @@ function fmt(n, d = 2) {
       setText("navStatTotalDistance", "0 m");
       setText("navStatCoords", "(0 m, 0 m)");
       setText("navCoordChip", "(0 m, 0 m)");
+      setText("editorCoordChip", "(0 m, 0 m)");
       return;
     }
     const pose = latestPose();
@@ -1295,6 +1311,7 @@ function fmt(n, d = 2) {
     setText("navStatTotalDistance", formatScaleMeters(totalDist));
     setText("navStatCoords", coordText);
     setText("navCoordChip", coordText);
+    setText("editorCoordChip", coordText);
   }
 
 
@@ -2451,6 +2468,7 @@ function fmt(n, d = 2) {
     if (!canvas || !wrapEl) return;
     ensureCanvasSize(canvas, wrapEl);
     updateFilteredPose();
+    if (!state.editorAutoFit && state.editorFollowCurrent) syncEditorViewportToCurrentPose();
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawGrid(ctx, wrapEl, state.editorViewport);
@@ -3891,6 +3909,22 @@ function fmt(n, d = 2) {
     clampViewport(viewport);
   }
 
+  function syncEditorViewportToCurrentPose() {
+    const wrapEl = $("editorCanvasWrap");
+    if (!wrapEl) return;
+    const pose = latestPose();
+    const viewport = state.editorViewport;
+    const base = getBasePixelsPerWorld(wrapEl);
+    viewport.panX = -(Number(pose.x || 0) * base.x * (viewport.scale || 1));
+    viewport.panY = -(Number(pose.y || 0) * base.y * (viewport.scale || 1));
+    clampViewport(viewport);
+  }
+
+  function centerEditorOnCurrentPose() {
+    syncEditorViewportToCurrentPose();
+    refreshViewportUI();
+  }
+
   function centerNavOnCurrentPose() {
     const wrapEl = $("trackCanvasWrap");
     if (!wrapEl) return;
@@ -4047,17 +4081,33 @@ function fmt(n, d = 2) {
   $("btnNavFitNow")?.addEventListener("click", () => {
     centerNavOnCurrentPose();
   });
+  $("btnEditorAutoFit")?.addEventListener("click", () => {
+    state.editorAutoFit = !state.editorAutoFit;
+    if (state.editorAutoFit) ensureEditorViewportVisible(true);
+    refreshViewportUI();
+  });
+  $("btnEditorFollow")?.addEventListener("click", () => {
+    state.editorFollowCurrent = !state.editorFollowCurrent;
+    if (state.editorFollowCurrent) centerEditorOnCurrentPose();
+    refreshViewportUI();
+  });
+  $("btnEditorCenter")?.addEventListener("click", () => {
+    centerEditorOnCurrentPose();
+  });
   $("btnEditorFullscreen")?.addEventListener("click", () => toggleWrapFullscreen("editorCanvasWrap"));
   document.addEventListener("fullscreenchange", () => {
     ensureNavViewportVisible(state.navAutoFit);
+    ensureEditorViewportVisible(state.editorAutoFit);
     refreshViewportUI();
   });
   document.addEventListener("webkitfullscreenchange", () => {
     ensureNavViewportVisible(state.navAutoFit);
+    ensureEditorViewportVisible(state.editorAutoFit);
     refreshViewportUI();
   });
   window.addEventListener("resize", () => {
     ensureNavViewportVisible(state.navAutoFit);
+    ensureEditorViewportVisible(state.editorAutoFit);
     refreshViewportUI();
   });
     
