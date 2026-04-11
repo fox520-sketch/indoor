@@ -1,3 +1,4 @@
+// v51 build marker
 // v50 build marker
 // v49 build marker
 // v48 build marker
@@ -4023,6 +4024,17 @@ function fmt(n, d = 2) {
   $("btnPosCorrection").addEventListener("click", beginPositionCorrection);
   $("btnHeadingCorrection").addEventListener("click", beginHeadingCorrection);
   $("btnExport").addEventListener("click", exportData);
+  $("importJsonFile")?.addEventListener("change", async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    try {
+      await importNavJsonTracks(file);
+    } catch (err) {
+      setMessage("匯入 JSON 失敗：" + err.message);
+    } finally {
+      e.target.value = "";
+    }
+  });
   $("btnStepCal").addEventListener("click", beginStepLengthCalibration);
   $("btnQrCal").addEventListener("click", openQrCalibration);
   $("btnQrClose").addEventListener("click", closeQrCalibration);
@@ -4209,12 +4221,3 @@ $("btnEditorAnchor")?.addEventListener("click", () => {
   loadPoseSmoothingPreference();
   render();
 })();
-
-
-  document.addEventListener("click", (e) => {
-    const btn = e.target && e.target.closest ? e.target.closest("#btnImportJson") : null;
-    if (!btn) return;
-    e.preventDefault();
-    const input = $("importJsonFile");
-    if (input) input.click();
-  });

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v51 build marker -->
 <!-- v50 build marker -->
 <!-- v49 build marker -->
 <!-- v48 build marker -->
@@ -697,8 +698,8 @@
               <button id="btnStart">開始追蹤</button>
               <button id="btnStop">停止追蹤</button>
               <button class="secondary" id="btnExport">匯出 JSON</button>
-              <button class="secondary" id="btnImportJson" type="button">匯入 JSON</button>
-              <input id="importJsonFile" type="file" accept="application/json,.json" style="display:none;" />
+              <label class="secondary" id="btnImportJson" for="importJsonFile" tabindex="0">匯入 JSON</label>
+              <input id="importJsonFile" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
               <button class="secondary" id="btnStepCal">10 步步長校正</button>
               <button class="secondary" id="btnQrCal">QR 校正點</button>
               <a class="download-link" id="downloadLink" style="display:none;">下載匯出檔</a>
