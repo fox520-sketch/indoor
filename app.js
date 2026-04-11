@@ -1,3 +1,4 @@
+// v50 build marker
 // v49 build marker
 // v48 build marker
 // v46 build marker
@@ -4208,3 +4209,12 @@ $("btnEditorAnchor")?.addEventListener("click", () => {
   loadPoseSmoothingPreference();
   render();
 })();
+
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest("#btnImportJson") : null;
+    if (!btn) return;
+    e.preventDefault();
+    const input = $("importJsonFile");
+    if (input) input.click();
+  });
