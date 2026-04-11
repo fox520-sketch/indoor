@@ -1,4 +1,4 @@
-// v47 build marker
+// v48 build marker
 // v46 build marker
 // v44 build marker
 // v43 build marker
@@ -3699,27 +3699,27 @@ function fmt(n, d = 2) {
   }
 
 
+  function prefillQrAnchorFromCurrentPose() {
+    const pose = latestPose();
+    const heading = normalizeAngle((state.orientation?.heading ?? pose?.heading ?? 0) || 0);
+    const xInput = $("anchorX");
+    const yInput = $("anchorY");
+    const hInput = $("anchorHeading");
+    if (xInput) xInput.value = fmt(pose?.x || 0, 2);
+    if (yInput) yInput.value = fmt(pose?.y || 0, 2);
+    if (hInput) hInput.value = fmt(heading, 1);
+    generateQr();
+  }
+
   function fillQrInputsFromCurrentPose() {
     const pose = latestPose();
     const heading = normalizeAngle((state.orientation?.heading ?? pose?.heading ?? 0) || 0);
-    const candidates = {
-      x: ["anchorX", "qrAnchorX", "xCoord", "anchorXInput"],
-      y: ["anchorY", "qrAnchorY", "yCoord", "anchorYInput"],
-      h: ["anchorHeading", "qrAnchorHeading", "heading", "anchorHeadingInput"]
-    };
-    const setVal = (ids, value) => {
-      for (const id of ids) {
-        const el = $(id);
-        if (el) {
-          el.value = value;
-          return true;
-        }
-      }
-      return false;
-    };
-    setVal(candidates.x, fmt(pose?.x || 0, 2));
-    setVal(candidates.y, fmt(pose?.y || 0, 2));
-    setVal(candidates.h, fmt(heading, 1));
+    const xInput = $("xValue");
+    const yInput = $("yValue");
+    const hInput = $("headingValueInput");
+    if (xInput) xInput.value = fmt(pose?.x || 0, 2);
+    if (yInput) yInput.value = fmt(pose?.y || 0, 2);
+    if (hInput) hInput.value = fmt(heading, 1);
   }
 
   function prefillQrAnchorFromCurrentPose() {
@@ -4025,6 +4025,11 @@ function fmt(n, d = 2) {
   });
 
   $("btnGenerate").addEventListener("click", generateQr);
+  $("btnUseCurrentPoseForQr")?.addEventListener("click", () => {
+    fillQrInputsFromCurrentPose();
+    generateQr();
+    setMessage("已用目前位置更新 QR。");
+  });
   $("btnSaveAnchor").addEventListener("click", saveCurrentAnchor);
   $("btnExportAnchors").addEventListener("click", exportSavedAnchors);
   $("btnSyncAnchorsToMap").addEventListener("click", syncAllAnchorsToMap);
