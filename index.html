@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v57 build marker -->
 <!-- v56 build marker -->
 <!-- v55 build marker -->
 <!-- v54 build marker -->
@@ -725,6 +726,8 @@
               <button class="secondary" id="btnExport">匯出 JSON</button>
               <label class="secondary import-json-trigger" id="btnImportJson" for="importJsonFile" tabindex="0">匯入 JSON</label>
               <input id="importJsonFile" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
+              <label class="secondary import-json-trigger" id="btnImportJson" for="importJsonFile" tabindex="0">匯入 JSON</label>
+              <input id="importJsonFile" type="file" accept="application/json,.json" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;" />
               <button class="secondary" id="btnStepCal">10 步步長校正</button>
               <button class="secondary" id="btnQrCal">QR 校正點</button>
               <a class="download-link" id="downloadLink" style="display:none;">下載匯出檔</a>
@@ -1178,6 +1181,7 @@
     poseSmoothingAlpha: 0.22,
     poseSmoothingPreset: "balanced",
     corrections: [],
+    importedTracks: [],
     stepCount: 0,
     stepLength: DEFAULT_STEP_METERS,
     lastStepAt: 0,
@@ -1372,6 +1376,7 @@
     addPoint(pose.x, pose.y);
     state.savedAnchors.forEach((a) => addPoint(a.x, a.y));
     state.plannedRoutePoints.forEach((p) => addPoint(p.x, p.y));
+    (state.importedTracks || []).forEach((track) => track.points.forEach((p) => addPoint(p.x, p.y)));
     state.mapElements.forEach((el) => {
       if (el.type === "point") {
         addPoint(el.x, el.y);
@@ -2259,6 +2264,89 @@ function fmt(n, d = 2) {
     return out;
   }
 
+
+  function getImportedTrackColors() {
+    return ["#2563eb", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#be123c", "#0f766e"];
+  }
+
+  function normalizeImportedTrackPayload(payload) {
+    const colors = getImportedTrackColors();
+    const tracks = [];
+    const toPoints = (arr) => Array.isArray(arr) ? arr.map((p) => ({
+      x: Number(p?.x || 0),
+      y: Number(p?.y || 0),
+      t: p?.t || Date.now(),
+      heading: Number(p?.heading || 0)
+    })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) : [];
+
+    if (Array.isArray(payload)) {
+      tracks.push({ name: "匯入軌跡 1", color: colors[0], points: toPoints(payload) });
+    } else if (Array.isArray(payload?.trail)) {
+      tracks.push({ name: payload?.name || "匯入軌跡 1", color: payload?.color || colors[0], points: toPoints(payload.trail) });
+    } else if (Array.isArray(payload?.tracks)) {
+      payload.tracks.forEach((track, idx) => {
+        tracks.push({
+          name: track?.name || `匯入軌跡 ${idx + 1}`,
+          color: track?.color || colors[idx % colors.length],
+          points: toPoints(track?.points || track?.trail || [])
+        });
+      });
+    } else if (Array.isArray(payload?.trailHistory)) {
+      payload.trailHistory.forEach((entry, idx) => {
+        tracks.push({
+          name: entry?.name || `匯入軌跡 ${idx + 1}`,
+          color: entry?.color || colors[idx % colors.length],
+          points: toPoints(entry?.points || entry?.trail || [])
+        });
+      });
+    } else if (Array.isArray(payload?.state?.trail)) {
+      tracks.push({ name: payload?.name || "匯入軌跡 1", color: payload?.color || colors[0], points: toPoints(payload.state.trail) });
+    } else if (Array.isArray(payload?.data?.trail)) {
+      tracks.push({ name: payload?.name || "匯入軌跡 1", color: payload?.color || colors[0], points: toPoints(payload.data.trail) });
+    } else if (Array.isArray(payload?.path)) {
+      tracks.push({ name: payload?.name || "匯入軌跡 1", color: payload?.color || colors[0], points: toPoints(payload.path) });
+    }
+
+    return tracks.filter((t) => t.points.length >= 2);
+  }
+
+  async function importNavJsonTracks(file) {
+    if (!file) {
+      setMessage("匯入失敗：沒有檔案。");
+      return;
+    }
+    const raw = await file.text();
+    if (!raw || !raw.trim()) {
+      setMessage("匯入失敗：JSON 檔案是空的。");
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      setMessage("匯入失敗：JSON 格式錯誤。");
+      throw err;
+    }
+    const tracks = normalizeImportedTrackPayload(parsed);
+    if (!tracks.length) {
+      const keys = parsed && typeof parsed === "object" ? Object.keys(parsed).slice(0, 12).join(", ") : "無";
+      setMessage(`匯入失敗：找不到可顯示的軌跡資料。檔案鍵值：${keys || "無"}`);
+      refreshViewportUI();
+      return;
+    }
+    const palette = getImportedTrackColors();
+    tracks.forEach((track, idx) => {
+      track.id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + idx);
+      if (!track.color) track.color = palette[(state.importedTracks.length + idx) % palette.length];
+    });
+    state.importedTracks.push(...tracks);
+    const pointCount = tracks.reduce((sum, t) => sum + t.points.length, 0);
+    setMessage(`已匯入 ${tracks.length} 條 JSON 軌跡，共 ${pointCount} 個軌跡點。`);
+    ensureNavViewportVisible(true);
+    refreshViewportUI();
+    render();
+  }
+
   function getDisplayTrail() {
     return getSmoothedTrail(state.trail, 2);
   }
@@ -2344,6 +2432,21 @@ function fmt(n, d = 2) {
     }
 
     if (!state.trail.length) return;
+
+    (state.importedTracks || []).forEach((track) => {
+      const importedTrail = getSmoothedTrail(track.points, 2);
+      ctx.strokeStyle = track.color || "#2563eb";
+      ctx.lineWidth = lineWidthForWorld(2.5, state.navViewport);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      importedTrail.forEach((p, i) => {
+        const pt = viewportWorldToScreen(p, state.navViewport, wrapEl);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.stroke();
+    });
 
     const displayTrail = getDisplayTrail();
     ctx.strokeStyle = "#0f172a";
@@ -4807,6 +4910,24 @@ function fmt(n, d = 2) {
   $("btnPosCorrection").addEventListener("click", beginPositionCorrection);
   $("btnHeadingCorrection").addEventListener("click", beginHeadingCorrection);
   $("btnExport").addEventListener("click", exportData);
+  $("btnImportJson")?.addEventListener("click", () => {
+    setMessage("請選擇要匯入的 JSON 檔案。");
+  });
+  $("importJsonFile")?.addEventListener("change", async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) {
+      setMessage("未選擇 JSON 檔案。");
+      return;
+    }
+    setMessage(`已選擇檔案：${file.name}，開始匯入...`);
+    try {
+      await importNavJsonTracks(file);
+    } catch (err) {
+      setMessage("匯入 JSON 失敗：" + err.message);
+    } finally {
+      e.target.value = "";
+    }
+  });
   $("btnStepCal").addEventListener("click", beginStepLengthCalibration);
   $("btnQrCal").addEventListener("click", openQrCalibration);
   $("btnQrClose").addEventListener("click", closeQrCalibration);

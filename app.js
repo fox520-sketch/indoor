@@ -1,3 +1,4 @@
+// v57 build marker
 // v56 build marker
 // v55 build marker
 // v54 build marker
@@ -71,6 +72,7 @@
     poseSmoothingAlpha: 0.22,
     poseSmoothingPreset: "balanced",
     corrections: [],
+    importedTracks: [],
     importedTracks: [],
     stepCount: 0,
     stepLength: DEFAULT_STEP_METERS,
@@ -274,6 +276,7 @@
     state.navTrackPoints.forEach((p) => addPoint(p.x, p.y));
     state.plannedRoutePoints.forEach((p) => addPoint(p.x, p.y));
     state.importedTracks.forEach((track) => track.points.forEach((p) => addPoint(p.x, p.y)));
+    (state.importedTracks || []).forEach((track) => track.points.forEach((p) => addPoint(p.x, p.y)));
     state.mapElements.forEach((el) => {
       if (el.type === "point") {
         addPoint(el.x, el.y);
@@ -1529,6 +1532,21 @@ function fmt(n, d = 2) {
     if (!state.trail.length) return;
 
     state.importedTracks.forEach((track) => {
+      const importedTrail = getSmoothedTrail(track.points, 2);
+      ctx.strokeStyle = track.color || "#2563eb";
+      ctx.lineWidth = lineWidthForWorld(2.5, state.navViewport);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      importedTrail.forEach((p, i) => {
+        const pt = viewportWorldToScreen(p, state.navViewport, wrapEl);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.stroke();
+    });
+
+    (state.importedTracks || []).forEach((track) => {
       const importedTrail = getSmoothedTrail(track.points, 2);
       ctx.strokeStyle = track.color || "#2563eb";
       ctx.lineWidth = lineWidthForWorld(2.5, state.navViewport);
