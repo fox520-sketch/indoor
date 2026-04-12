@@ -1,3 +1,4 @@
+// v59 build marker
 // v58 build marker
 // v57 build marker
 // v56 build marker
@@ -3701,6 +3702,28 @@ function fmt(n, d = 2) {
     setMessage("已產生 JSON 匯出檔，可下載目前軌跡與校正資料。");
   }
 
+  function setManualHeading() {
+    const current = Math.round(normalizeAngle((state.orientation?.heading ?? latestPose()?.heading ?? 0) || 0));
+    const raw = window.prompt("請輸入手機行進方向（0~359）", String(current));
+    if (raw === null) return;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0 || value > 359) {
+      setMessage("方向輸入無效，請輸入 0 到 359 的數字。");
+      return;
+    }
+    const heading = Math.round(value);
+    state.orientation.heading = heading;
+    state.currentPose = { ...(state.currentPose || {}), heading };
+    if (state.filteredPose) state.filteredPose = { ...state.filteredPose, heading };
+    if (Array.isArray(state.trail) && state.trail.length) {
+      const last = state.trail[state.trail.length - 1];
+      state.trail[state.trail.length - 1] = { ...last, heading };
+    }
+    setMessage(`已設定手機行進方向：${heading}°`);
+    refreshViewportUI();
+    render();
+  }
+
   function beginStepLengthCalibration() {
     if (state.calibratingStepLength) return;
     state.calibratingStepLength = true;
@@ -4116,6 +4139,7 @@ function fmt(n, d = 2) {
     }
   });
   $("btnStepCal").addEventListener("click", beginStepLengthCalibration);
+  $("btnSetManualHeading")?.addEventListener("click", setManualHeading);
   $("btnQrCal").addEventListener("click", openQrCalibration);
   $("btnQrClose").addEventListener("click", closeQrCalibration);
   $("stepLength").addEventListener("input", (e) => {
