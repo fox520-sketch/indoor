@@ -1,4 +1,4 @@
-// v59 build marker
+// v60 build marker
 // v58 build marker
 // v57 build marker
 // v56 build marker
@@ -70,6 +70,7 @@
     headingSamples: [],
     trail: [{ x: 0, y: 0, heading: 0, t: Date.now() }],
     currentPose: { x: 0, y: 0, heading: 0 },
+    headingOffset: 0,
     filteredPose: { x: 0, y: 0, heading: 0 },
     poseSmoothingAlpha: 0.22,
     poseSmoothingPreset: "balanced",
@@ -198,8 +199,8 @@
     const navFollowBtn = $("btnNavFollow");
     if (navFollowBtn) navFollowBtn.textContent = `跟隨 ${state.navFollowCurrent ? "開" : "關"}`;
     applyViewportTransform($("editorCanvas"), state.editorViewport, "editorZoomChip");
-    setCompass("navCompassNeedle", state.orientation.heading || latestPose().heading || 0);
-    setCompass("editorCompassNeedle", state.orientation.heading || latestPose().heading || 0);
+    setCompass("navCompassNeedle", getCorrectedHeading(state.orientation.heading || rawLatestPose()?.heading || latestPose().heading || 0));
+    setCompass("editorCompassNeedle", getCorrectedHeading(state.orientation.heading || rawLatestPose()?.heading || latestPose().heading || 0));
     updateFullscreenButtons();
     drawTrack();
     drawEditorCanvas();
@@ -855,8 +856,19 @@ function fmt(n, d = 2) {
     };
   }
 
+  function getCorrectedHeading(rawHeading) {
+    const raw = Number(rawHeading || 0);
+    return normalizeAngle(raw + Number(state.headingOffset || 0));
+  }
+
+  function currentSensorHeading() {
+    return Number(state.orientation?.heading ?? rawLatestPose()?.heading ?? state.currentPose?.heading ?? 0);
+  }
+
   function latestPose() {
-    return state.filteredPose || state.trail[state.trail.length - 1] || state.currentPose;
+    const pose = state.filteredPose || state.trail[state.trail.length - 1] || state.currentPose;
+    if (!pose) return pose;
+    return { ...pose, heading: getCorrectedHeading(pose.heading) };
   }
 
   function rawLatestPose() {
@@ -1250,12 +1262,12 @@ function fmt(n, d = 2) {
   }
 
   function movementHeadingDegrees() {
-    if (!state.trail.length || state.trail.length < 2) return latestPose().heading || 0;
+    if (!state.trail.length || state.trail.length < 2) return getCorrectedHeading(currentSensorHeading()) || 0;
     const last = state.trail[state.trail.length - 1];
     const prev = state.trail[state.trail.length - 2];
     const dx = Number(last.x || 0) - Number(prev.x || 0);
     const dy = Number(last.y || 0) - Number(prev.y || 0);
-    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return latestPose().heading || 0;
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return getCorrectedHeading(currentSensorHeading()) || 0;
     return normalizeAngle((Math.atan2(dx, -dy) * 180) / Math.PI);
   }
 
@@ -3533,6 +3545,7 @@ function fmt(n, d = 2) {
     stopTracking();
     state.trail = [{ x: 0, y: 0, heading: 0, t: Date.now() }];
     state.currentPose = { x: 0, y: 0, heading: 0 };
+    state.headingOffset = 0;
     state.filteredPose = { x: 0, y: 0, heading: 0 };
     state.corrections = [];
     state.positionSamples = [];
@@ -3702,28 +3715,6 @@ function fmt(n, d = 2) {
     setMessage("已產生 JSON 匯出檔，可下載目前軌跡與校正資料。");
   }
 
-  function setManualHeading() {
-    const current = Math.round(normalizeAngle((state.orientation?.heading ?? latestPose()?.heading ?? 0) || 0));
-    const raw = window.prompt("請輸入手機行進方向（0~359）", String(current));
-    if (raw === null) return;
-    const value = Number(raw);
-    if (!Number.isFinite(value) || value < 0 || value > 359) {
-      setMessage("方向輸入無效，請輸入 0 到 359 的數字。");
-      return;
-    }
-    const heading = Math.round(value);
-    state.orientation.heading = heading;
-    state.currentPose = { ...(state.currentPose || {}), heading };
-    if (state.filteredPose) state.filteredPose = { ...state.filteredPose, heading };
-    if (Array.isArray(state.trail) && state.trail.length) {
-      const last = state.trail[state.trail.length - 1];
-      state.trail[state.trail.length - 1] = { ...last, heading };
-    }
-    setMessage(`已設定手機行進方向：${heading}°`);
-    refreshViewportUI();
-    render();
-  }
-
   function beginStepLengthCalibration() {
     if (state.calibratingStepLength) return;
     state.calibratingStepLength = true;
@@ -3864,7 +3855,7 @@ function fmt(n, d = 2) {
 
   function prefillQrAnchorFromCurrentPose() {
     const pose = latestPose();
-    const heading = normalizeAngle((state.orientation?.heading ?? pose?.heading ?? 0) || 0);
+    const heading = getCorrectedHeading((state.orientation?.heading ?? pose?.heading ?? 0) || 0);
     const xInput = $("anchorX");
     const yInput = $("anchorY");
     const hInput = $("anchorHeading");
@@ -3876,7 +3867,7 @@ function fmt(n, d = 2) {
 
   function fillQrInputsFromCurrentPose() {
     const pose = latestPose();
-    const heading = normalizeAngle((state.orientation?.heading ?? pose?.heading ?? 0) || 0);
+    const heading = getCorrectedHeading((state.orientation?.heading ?? pose?.heading ?? 0) || 0);
     const xInput = $("xValue");
     const yInput = $("yValue");
     const hInput = $("headingValueInput");
