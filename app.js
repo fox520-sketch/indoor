@@ -1,3 +1,4 @@
+// v61 build marker
 // v60 build marker
 // v58 build marker
 // v57 build marker
@@ -4130,7 +4131,10 @@ function fmt(n, d = 2) {
     }
   });
   $("btnStepCal").addEventListener("click", beginStepLengthCalibration);
-  $("btnSetManualHeading")?.addEventListener("click", setManualHeading);
+  $("btnSetManualHeading")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    setManualHeading();
+  });
   $("btnQrCal").addEventListener("click", openQrCalibration);
   $("btnQrClose").addEventListener("click", closeQrCalibration);
   $("stepLength").addEventListener("input", (e) => {
